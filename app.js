@@ -92,6 +92,7 @@
         if (hash === '#/calendar') showView('calendar');
         else if (hash === '#/select') showView('select');
         else if (hash === '#/study') showView('study');
+        else if (hash === '#/guide') showView('guide');
       });
     });
 
@@ -115,6 +116,24 @@
       e.preventDefault();
       showView('study');
     });
+
+    // Guide back button
+    const guideBack = document.querySelector('.guide-back a');
+    if (guideBack) {
+      guideBack.addEventListener('click', (e) => {
+        e.preventDefault();
+        showView('landing');
+      });
+    }
+
+    // Landing how-to link
+    const howtoLink = document.querySelector('.landing-howto-link');
+    if (howtoLink) {
+      howtoLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        showView('guide');
+      });
+    }
   }
 
   // ===== View Management =====

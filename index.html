@@ -17,6 +17,7 @@
         <li><a href="#/calendar" data-view="calendar">Exam Calendar</a></li>
         <li><a href="#/select" data-view="select">My Calendar</a></li>
         <li><a href="#/study" data-view="study">Study Plan</a></li>
+        <li><a href="#/guide" data-view="guide">How to Use</a></li>
       </ul>
     </div>
   </nav>
@@ -52,6 +53,10 @@
         <a href="#/calendar" class="btn btn-primary">View Exam Calendar</a>
         <a href="#/select" class="btn btn-secondary">Build My Calendar</a>
         <a href="#/study" class="btn btn-secondary">Study Planner</a>
+      </div>
+      <div class="landing-howto">
+        <p>Color-coded dots show subject groups, pills merge same-session papers, and triangles mark AP exams. Build your calendar, detect conflicts, plan your study, and export to Google or Outlook — all in a few clicks.</p>
+        <a href="#/guide" class="landing-howto-link">How does it all work? →</a>
       </div>
       <p class="view-counter" id="view-counter"></p>
     </div>
@@ -156,6 +161,80 @@
       <div id="study-result" style="display:none;">
         <div id="study-summary" class="study-summary"></div>
         <div id="study-calendar" class="study-calendar"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="guide" class="view">
+    <div class="container guide-container">
+      <div class="view-header">
+        <h2 class="section-title"><span>How to Use Examiner</span></h2>
+      </div>
+
+      <div class="guide-section">
+        <h3>What Is Examiner?</h3>
+        <p>Examiner is a free, no-sign-up tool for IB Diploma/CP and AP students sitting May 2026 exams. It lets you view the complete schedule, build a personal calendar with conflict detection, generate a smart study plan, and export everything to Google Calendar, Outlook, or a spreadsheet.</p>
+      </div>
+
+      <div class="guide-section">
+        <h3>Calendar Symbols</h3>
+        <p>Each exam appears as a <strong>colored dot</strong> on the calendar. The color tells you the subject group:</p>
+        <div class="guide-legend">
+          <div class="guide-legend-item"><span class="guide-dot" style="background:#4A9EFF;"></span> Language &amp; Literature / Language Acquisition</div>
+          <div class="guide-legend-item"><span class="guide-dot" style="background:#FF6B6B;"></span> Individuals &amp; Societies</div>
+          <div class="guide-legend-item"><span class="guide-dot" style="background:#51CF66;"></span> Sciences</div>
+          <div class="guide-legend-item"><span class="guide-dot" style="background:#FFD43B;"></span> Mathematics</div>
+          <div class="guide-legend-item"><span class="guide-dot" style="background:#CC5DE8;"></span> Arts</div>
+          <div class="guide-legend-item"><span class="guide-dot" style="background:#FF922B;"></span> Interdisciplinary</div>
+          <div class="guide-legend-item"><span class="guide-dot guide-dot-ap" style="background:#00B4D8;"></span> AP Exams (triangle shape)</div>
+        </div>
+        <p><strong>Pill shape</strong> — When two papers from the same subject are in the same session (e.g. Paper 1 and Paper 2 both in the morning), they merge into a single pill instead of two separate dots.</p>
+        <p><strong>AM / PM</strong> — Dots are grouped by session. Morning exams appear first, afternoon exams below. Hover or tap a day to see the full tooltip split into AM (left) and PM (right) columns.</p>
+        <p><strong>Highlighting</strong> — When you search for a subject or hover over a legend item, matching dots glow and enlarge while others dim.</p>
+      </div>
+
+      <div class="guide-section">
+        <h3>Full Exam Calendar</h3>
+        <p>The <strong>Exam Calendar</strong> view shows every IB and AP exam in May 2026 on a month grid. Use the search bar at the top to filter by subject name, group, or keyword (e.g. "Physics", "AP", "Sciences"). The legend at the top maps colors to subject groups — hover any legend item to highlight those exams on the calendar.</p>
+      </div>
+
+      <div class="guide-section">
+        <h3>Build My Calendar</h3>
+        <p>In <strong>Build My Calendar</strong>, add your subjects using the searchable dropdown. You can type a subject name, level (HL/SL), or category. Your selections are saved automatically.</p>
+        <p>After adding subjects, click <strong>Generate My Calendar</strong> to produce a personal calendar showing only your exams. You'll see:</p>
+        <ul>
+          <li><strong>Conflict detection</strong> — A banner warns you if two of your exams overlap in the same session.</li>
+          <li><strong>Stats panel</strong> — Total exams, exam days, total exam hours, and date range at a glance.</li>
+          <li><strong>Export options</strong> — Export your schedule as an SVG image, Google Calendar events, Outlook events, or a CSV spreadsheet. You can also copy a shareable link.</li>
+        </ul>
+      </div>
+
+      <div class="guide-section">
+        <h3>Study Planner</h3>
+        <p>The <strong>Study Planner</strong> builds a day-by-day revision calendar based on how difficult you find each subject.</p>
+        <ol>
+          <li><strong>Add study subjects</strong> — These are independent from your exam calendar selections, so you can plan study for any subjects.</li>
+          <li><strong>Rank by difficulty</strong> — Drag subjects between three tiers: <span class="guide-tag guide-tag-hard">Hard</span>, <span class="guide-tag guide-tag-medium">Medium</span>, and <span class="guide-tag guide-tag-easy">Easy</span>. Within each tier, put the hardest at the top. Use the arrows or drag-and-drop to reorder.</li>
+          <li><strong>Set daily hours</strong> and <strong>max subjects per day</strong> to match your schedule.</li>
+          <li><strong>No studying on exam days</strong> — Toggle this on (default) to keep exam days free.</li>
+          <li>Click <strong>Generate Study Plan</strong> to see a calendar grid with color-coded study blocks.</li>
+        </ol>
+        <p>The algorithm gives more time to harder subjects and prioritises subjects with exams coming up soon. Easy subjects only get study days when no Hard or Medium exams are imminent.</p>
+      </div>
+
+      <div class="guide-section">
+        <h3>Tips &amp; Best Practices</h3>
+        <ul>
+          <li><strong>Start with Build My Calendar</strong> to see your personal schedule and catch conflicts early.</li>
+          <li><strong>Use the Study Planner</strong> after finalising your subjects — rank honestly and let the algorithm allocate your time.</li>
+          <li><strong>Export to Google/Outlook</strong> so exam times appear alongside your other commitments.</li>
+          <li><strong>Revisit your difficulty ranking</strong> as you study — drag subjects between tiers to adjust the plan.</li>
+          <li><strong>Search is your friend</strong> — both the calendar search and the subject dropdown support partial and fuzzy matching.</li>
+        </ul>
+      </div>
+
+      <div class="guide-back">
+        <a href="#/" class="btn btn-secondary">← Back to Home</a>
       </div>
     </div>
   </section>
