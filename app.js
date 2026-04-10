@@ -348,20 +348,20 @@
 
   // ===== Course Selector (Searchable Dropdown) =====
   const COURSE_GROUPS = {
-    'Studies in Language & Literature': c =>
+    'IB Language & Literature': c =>
       c.id.startsWith('lang_a_') || c.id.startsWith('english_a_') ||
       c.id.startsWith('french_a_') || c.id.startsWith('spanish_a_') ||
       c.id === 'lit_performance_sl',
-    'Language Acquisition': c =>
+    'IB Language Acquisition': c =>
       c.id.startsWith('lang_b_') || c.id.startsWith('lang_ab_') ||
       c.id.startsWith('english_b_') || c.id.startsWith('english_ab_') ||
       c.id.startsWith('french_b_') || c.id.startsWith('french_ab_') ||
       c.id.startsWith('spanish_b_') || c.id.startsWith('spanish_ab_') ||
       c.id.startsWith('latin_') || c.id.startsWith('classical_greek_'),
-    'Individuals & Societies': c => c.group === 'individuals',
-    'Sciences': c => c.group === 'sciences',
-    'Mathematics': c => c.group === 'mathematics',
-    'Interdisciplinary': c => c.group === 'interdisciplinary',
+    'IB Individuals & Societies': c => c.group === 'individuals',
+    'IB Sciences': c => c.group === 'sciences',
+    'IB Mathematics': c => c.group === 'mathematics',
+    'IB Interdisciplinary': c => c.group === 'interdisciplinary',
     'AP Exams': c => c.group === 'ap',
   };
 
@@ -515,16 +515,28 @@
     });
 
     // Same-slot conflicts (same date + same session)
+    // Exams from the same course (sharing a courseId) in the same slot are normal dual-paper sessions, not conflicts
     for (const [key, exams] of Object.entries(bySlot)) {
       if (exams.length > 1) {
-        const [date, session] = key.split('|');
-        conflicts.push({
-          type: 'same-session',
-          date,
-          session,
-          exams: exams.map(e => e.name),
-          severity: 'high'
-        });
+        // Group exams by their courseIds to find actual cross-subject conflicts
+        const uniqueCourses = new Set();
+        exams.forEach(e => e.courseIds.forEach(cid => uniqueCourses.add(cid)));
+
+        // Check if all exams belong to the same single course
+        const allSameCourse = exams.every(e =>
+          e.courseIds.length === 1 && e.courseIds[0] === exams[0].courseIds[0]
+        );
+
+        if (!allSameCourse && uniqueCourses.size > 1) {
+          const [date, session] = key.split('|');
+          conflicts.push({
+            type: 'same-session',
+            date,
+            session,
+            exams: exams.map(e => e.name),
+            severity: 'high'
+          });
+        }
       }
     }
 
