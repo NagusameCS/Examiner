@@ -347,6 +347,142 @@
   }
 
   // ===== Course Selector (Searchable Dropdown) =====
+
+  // Exclusion groups: selecting any course in a group hides the others.
+  // HL/SL pairs for same subject, plus all math variants are mutually exclusive.
+  // Sciences are NOT mutually exclusive across subjects (only HL/SL of same subject).
+  const EXCLUSION_GROUPS = [
+    // Mathematics — only one math course
+    ['math_aa_hl', 'math_aa_sl', 'math_ai_hl', 'math_ai_sl'],
+    // HL/SL pairs for each IB subject
+    ['physics_hl', 'physics_sl'],
+    ['chemistry_hl', 'chemistry_sl'],
+    ['biology_hl', 'biology_sl'],
+    ['computer_science_hl', 'computer_science_sl'],
+    ['design_technology_hl', 'design_technology_sl'],
+    ['sports_exercise_health_hl', 'sports_exercise_health_sl'],
+    ['ess_hl', 'ess_sl'],
+    ['history_hl', 'history_sl'],
+    ['geography_hl', 'geography_sl'],
+    ['economics_hl', 'economics_sl'],
+    ['psychology_hl', 'psychology_sl'],
+    ['philosophy_hl', 'philosophy_sl'],
+    ['social_cultural_anthropology_hl', 'social_cultural_anthropology_sl'],
+    ['global_politics_hl', 'global_politics_sl'],
+    ['business_management_hl', 'business_management_sl'],
+    ['digital_society_hl', 'digital_society_sl'],
+    ['english_a_lit_hl', 'english_a_lit_sl'],
+    ['english_a_langlit_hl', 'english_a_langlit_sl'],
+    ['french_a_lit_hl', 'french_a_lit_sl'],
+    ['french_a_langlit_hl', 'french_a_langlit_sl'],
+    ['spanish_a_lit_hl', 'spanish_a_lit_sl'],
+    ['spanish_a_langlit_hl', 'spanish_a_langlit_sl'],
+    ['lang_a_lit_hl_other', 'lang_a_lit_sl_other'],
+    ['lang_a_langlit_hl_other', 'lang_a_langlit_sl_other'],
+    ['english_b_hl', 'english_b_sl'],
+    ['french_b_hl', 'french_b_sl'],
+    ['spanish_b_hl', 'spanish_b_sl'],
+    ['lang_b_hl_other', 'lang_b_sl_other'],
+    ['latin_hl', 'latin_sl'],
+    ['classical_greek_hl', 'classical_greek_sl'],
+  ];
+
+  function getExcludedIds(selectedIds) {
+    const excluded = new Set();
+    for (const id of selectedIds) {
+      for (const group of EXCLUSION_GROUPS) {
+        if (group.includes(id)) {
+          group.forEach(gid => { if (gid !== id) excluded.add(gid); });
+        }
+      }
+    }
+    return excluded;
+  }
+
+  // Acronym/alias map — searched invisibly alongside course name
+  const COURSE_ALIASES = {
+    // IB Math
+    math_aa_hl: ['aa', 'aa hl', 'analysis approaches', 'math aa'],
+    math_aa_sl: ['aa', 'aa sl', 'analysis approaches', 'math aa'],
+    math_ai_hl: ['ai', 'ai hl', 'applications interpretation', 'math ai'],
+    math_ai_sl: ['ai', 'ai sl', 'applications interpretation', 'math ai'],
+    // IB Sciences
+    computer_science_hl: ['cs', 'cs hl', 'compsci'],
+    computer_science_sl: ['cs', 'cs sl', 'compsci'],
+    ess_hl: ['ess', 'ess hl', 'environmental'],
+    ess_sl: ['ess', 'ess sl', 'environmental'],
+    sports_exercise_health_hl: ['sehs', 'sehs hl', 'sports science'],
+    sports_exercise_health_sl: ['sehs', 'sehs sl', 'sports science'],
+    design_technology_hl: ['dt', 'dt hl', 'design tech'],
+    design_technology_sl: ['dt', 'dt sl', 'design tech'],
+    // IB Individuals & Societies
+    business_management_hl: ['bm', 'bm hl', 'business'],
+    business_management_sl: ['bm', 'bm sl', 'business'],
+    global_politics_hl: ['gp', 'gp hl', 'glopol'],
+    global_politics_sl: ['gp', 'gp sl', 'glopol'],
+    digital_society_hl: ['ds', 'digsoc', 'digital soc'],
+    digital_society_sl: ['ds', 'digsoc', 'digital soc'],
+    social_cultural_anthropology_hl: ['sca', 'anthro', 'anthropology'],
+    social_cultural_anthropology_sl: ['sca', 'anthro', 'anthropology'],
+    economics_hl: ['econ', 'econ hl'],
+    economics_sl: ['econ', 'econ sl'],
+    psychology_hl: ['psych', 'psych hl'],
+    psychology_sl: ['psych', 'psych sl'],
+    philosophy_hl: ['philo', 'phil'],
+    philosophy_sl: ['philo', 'phil'],
+    geography_hl: ['geo', 'geo hl', 'geog'],
+    geography_sl: ['geo', 'geo sl', 'geog'],
+    history_hl: ['hist', 'hist hl'],
+    history_sl: ['hist', 'hist sl'],
+    // IB Language
+    english_a_lit_hl: ['eng lit', 'english lit'],
+    english_a_lit_sl: ['eng lit', 'english lit'],
+    english_a_langlit_hl: ['eng langlit', 'eng lang lit', 'english langlit'],
+    english_a_langlit_sl: ['eng langlit', 'eng lang lit', 'english langlit'],
+    english_b_hl: ['eng b'],
+    english_b_sl: ['eng b'],
+    lit_performance_sl: ['litperf', 'lit perf'],
+    lang_culture_sl: ['lang culture'],
+    sbs_sl: ['sbs', 'school based'],
+    // AP
+    ap_csa: ['csa', 'computer science a', 'cs a', 'compsci a'],
+    ap_csp: ['csp', 'computer science principles', 'cs principles', 'compsci p'],
+    ap_calculus_ab: ['calc ab', 'calcab'],
+    ap_calculus_bc: ['calc bc', 'calcbc'],
+    ap_precalculus: ['precalc'],
+    ap_statistics: ['stats', 'stat'],
+    ap_us_history: ['apush', 'us history', 'us hist'],
+    ap_world_history: ['ap world', 'world hist', 'whap'],
+    ap_european_history: ['ap euro', 'euro hist'],
+    ap_us_gov: ['ap gov', 'us gov', 'usgov', 'apgov'],
+    ap_comp_gov: ['comp gov', 'comparative gov'],
+    ap_human_geography: ['aphug', 'human geo', 'hug'],
+    ap_english_lit: ['ap lit', 'eng lit ap'],
+    ap_english_lang: ['ap lang', 'eng lang ap'],
+    ap_microeconomics: ['micro', 'ap micro'],
+    ap_macroeconomics: ['macro', 'ap macro'],
+    ap_physics_1: ['phys 1', 'physics 1'],
+    ap_physics_2: ['phys 2', 'physics 2'],
+    ap_physics_c_mech: ['phys c mech', 'physics c mech', 'ap mech'],
+    ap_physics_c_em: ['phys c em', 'physics c em', 'ap em', 'e&m'],
+    ap_environmental_science: ['apes', 'ap enviro', 'ap env'],
+    ap_african_american_studies: ['apaas', 'aas'],
+    ap_art_design: ['ap art', 'ap design'],
+    ap_art_history: ['ap art hist'],
+    ap_music_theory: ['ap music'],
+    ap_psychology: ['ap psych'],
+    ap_biology: ['ap bio'],
+    ap_chemistry: ['ap chem'],
+    ap_french: ['ap french'],
+    ap_spanish_lang: ['ap spanish'],
+    ap_spanish_lit: ['ap span lit'],
+    ap_seminar: ['ap sem'],
+    ap_research: ['ap res'],
+  };
+
+  function getAliasString(courseId) {
+    return (COURSE_ALIASES[courseId] || []).join(' ');
+  }
   const COURSE_GROUPS = {
     'IB Language & Literature': c =>
       c.id.startsWith('lang_a_') || c.id.startsWith('english_a_') ||
@@ -381,12 +517,13 @@
       listEl.innerHTML = '';
       const q = (query || '').toLowerCase().trim();
       const words = q.split(/\s+/).filter(Boolean);
+      const excludedIds = getExcludedIds(selectedCourseIds);
 
       // Build grouped list
       for (const [groupLabel, filterFn] of Object.entries(COURSE_GROUPS)) {
         let courses = COURSES.filter(filterFn);
 
-        // Filter by search query — match all words against name, group label, category, level
+        // Filter by search query — match all words against name, group label, category, level, and aliases
         if (words.length > 0) {
           courses = courses.filter(c => {
             const haystack = [
@@ -394,14 +531,15 @@
               groupLabel,
               c.category || '',
               c.level || '',
-              c.group
+              c.group,
+              getAliasString(c.id)
             ].join(' ').toLowerCase();
             return words.every(w => haystack.includes(w));
           });
         }
 
-        // Exclude already selected
-        courses = courses.filter(c => !selectedCourseIds.includes(c.id));
+        // Exclude already selected and mutually exclusive courses
+        courses = courses.filter(c => !selectedCourseIds.includes(c.id) && !excludedIds.has(c.id));
 
         if (courses.length === 0) continue;
 
