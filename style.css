@@ -383,6 +383,37 @@ a:hover { opacity: 0.7; }
   transition: transform var(--transition);
 }
 
+/* Multi-paper pill: two papers from the same subject in one session */
+.day-pill {
+  display: flex;
+  width: 19px; /* 8+3+8 = two dots + gap */
+  height: 8px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  position: relative;
+  transition: transform var(--transition);
+}
+
+.day-pill::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  background: var(--bg-secondary);
+  transform: translateX(-50%);
+}
+
+.day-pill.highlighted-dot {
+  transform: scale(1.5);
+  box-shadow: 0 0 6px currentColor;
+}
+
+.day-pill.dimmed {
+  opacity: 0.2;
+}
+
 /* AP exams: triangle shape instead of circle */
 .dot-ap {
   border-radius: 0;
@@ -1218,6 +1249,11 @@ footer a {
   .day-dot {
     width: 6px;
     height: 6px;
+  }
+  .day-pill {
+    width: 15px;
+    height: 6px;
+    border-radius: 3px;
   }
 }
 

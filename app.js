@@ -224,28 +224,7 @@
           sessionLabel.className = 'day-session-label';
           sessionLabel.textContent = 'AM';
           cell.appendChild(sessionLabel);
-          const dots = document.createElement('div');
-          dots.className = 'day-dots';
-          morningExams.forEach(exam => {
-            const dot = document.createElement('div');
-            dot.className = exam.group === 'ap' ? 'day-dot dot-ap' : 'day-dot';
-            const color = SUBJECT_GROUPS[exam.group]?.color || '#888';
-            dot.style.backgroundColor = color;
-            dot.style.color = color;
-
-            // Highlight logic
-            if (highlightQuery) {
-              const matches = exam.name.toLowerCase().includes(highlightQuery.toLowerCase());
-              if (matches) {
-                dot.classList.add('highlighted-dot');
-              } else {
-                dot.classList.add('dimmed');
-              }
-            }
-
-            dots.appendChild(dot);
-          });
-          cell.appendChild(dots);
+          cell.appendChild(buildSessionDots(morningExams, highlightQuery));
         }
 
         // Afternoon session
@@ -254,27 +233,7 @@
           sessionLabel.className = 'day-session-label';
           sessionLabel.textContent = 'PM';
           cell.appendChild(sessionLabel);
-          const dots = document.createElement('div');
-          dots.className = 'day-dots';
-          afternoonExams.forEach(exam => {
-            const dot = document.createElement('div');
-            dot.className = exam.group === 'ap' ? 'day-dot dot-ap' : 'day-dot';
-            const color = SUBJECT_GROUPS[exam.group]?.color || '#888';
-            dot.style.backgroundColor = color;
-            dot.style.color = color;
-
-            if (highlightQuery) {
-              const matches = exam.name.toLowerCase().includes(highlightQuery.toLowerCase());
-              if (matches) {
-                dot.classList.add('highlighted-dot');
-              } else {
-                dot.classList.add('dimmed');
-              }
-            }
-
-            dots.appendChild(dot);
-          });
-          cell.appendChild(dots);
+          cell.appendChild(buildSessionDots(afternoonExams, highlightQuery));
         }
 
         // Check if any exam matches highlight
@@ -301,6 +260,62 @@
 
   function buildFullCalendar(query) {
     buildCalendar('calendar-grid', EXAMS, query);
+  }
+
+  // Build dots/pills for a session's exams. Same-course multi-paper exams become a pill.
+  function buildSessionDots(sessionExams, highlightQuery) {
+    const dots = document.createElement('div');
+    dots.className = 'day-dots';
+
+    // Group exams that share a courseId — those are multi-paper sessions
+    const used = new Set();
+    const groups = [];
+    for (let i = 0; i < sessionExams.length; i++) {
+      if (used.has(i)) continue;
+      const exam = sessionExams[i];
+      const siblings = [];
+      for (let j = i + 1; j < sessionExams.length; j++) {
+        if (used.has(j)) continue;
+        const other = sessionExams[j];
+        // Same group + share at least one courseId = multi-paper
+        if (other.group === exam.group &&
+            exam.courseIds.some(id => other.courseIds.includes(id))) {
+          siblings.push(j);
+        }
+      }
+      if (siblings.length > 0) {
+        const allIndices = [i, ...siblings];
+        allIndices.forEach(idx => used.add(idx));
+        groups.push(allIndices.map(idx => sessionExams[idx]));
+      } else {
+        used.add(i);
+        groups.push([exam]);
+      }
+    }
+
+    groups.forEach(exams => {
+      const exam = exams[0];
+      const color = SUBJECT_GROUPS[exam.group]?.color || '#888';
+      const isPill = exams.length > 1;
+
+      const el = document.createElement('div');
+      if (isPill) {
+        el.className = 'day-pill';
+      } else {
+        el.className = exam.group === 'ap' ? 'day-dot dot-ap' : 'day-dot';
+      }
+      el.style.backgroundColor = color;
+      el.style.color = color;
+
+      if (highlightQuery) {
+        const anyMatch = exams.some(e => e.name.toLowerCase().includes(highlightQuery.toLowerCase()));
+        el.classList.add(anyMatch ? 'highlighted-dot' : 'dimmed');
+      }
+
+      dots.appendChild(el);
+    });
+
+    return dots;
   }
 
   // ===== Tooltip =====
