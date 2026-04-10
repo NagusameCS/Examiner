@@ -12,6 +12,7 @@
   const STUDY_RANK_KEY = 'examiner_study_ranks';
   const STUDY_HOURS_KEY = 'examiner_study_hours';
   const STUDY_CUSTOM_KEY = 'examiner_study_custom';
+  const STUDY_MAXSUB_KEY = 'examiner_study_maxsub';
   let studyPlanData = null;
 
   // ===== Cookie Helpers =====
@@ -1166,6 +1167,9 @@
 
   // ===== Study Planner =====
 
+  const TIERS = ['hard', 'medium', 'easy'];
+  const TIER_LABELS = { hard: 'Hard', medium: 'Medium', easy: 'Easy' };
+
   function initStudyView() {
     const noCourses = document.getElementById('study-no-courses');
     const config = document.getElementById('study-config');
@@ -1181,122 +1185,196 @@
     noCourses.style.display = 'none';
     config.style.display = 'block';
 
-    let ranks = null;
+    // Load saved tiered ranks: { hard: [...ids], medium: [...ids], easy: [...ids] }
+    let tieredRanks = null;
     try {
       const saved = getCookie(STUDY_RANK_KEY);
-      if (saved) ranks = JSON.parse(saved);
-    } catch (e) { ranks = null; }
+      if (saved) tieredRanks = JSON.parse(saved);
+    } catch (e) { tieredRanks = null; }
 
-    // Validate saved ranks match current courses
-    if (!ranks || !selectedCourseIds.every(id => ranks.includes(id)) || !ranks.every(id => selectedCourseIds.includes(id))) {
-      ranks = [...selectedCourseIds];
+    // Validate: must be object with exactly our courses across all tiers
+    if (tieredRanks && typeof tieredRanks === 'object' && tieredRanks.hard) {
+      const allSaved = [].concat(tieredRanks.hard || [], tieredRanks.medium || [], tieredRanks.easy || []);
+      const valid = selectedCourseIds.every(id => allSaved.includes(id)) &&
+                    allSaved.every(id => selectedCourseIds.includes(id)) &&
+                    allSaved.length === selectedCourseIds.length;
+      if (!valid) tieredRanks = null;
+    } else {
+      // Migrate from old flat array format
+      tieredRanks = null;
+    }
+
+    if (!tieredRanks) {
+      // Default: distribute evenly across tiers
+      const ids = [...selectedCourseIds];
+      const third = Math.ceil(ids.length / 3);
+      tieredRanks = {
+        hard: ids.slice(0, third),
+        medium: ids.slice(third, third * 2),
+        easy: ids.slice(third * 2)
+      };
     }
 
     const savedHours = getCookie(STUDY_HOURS_KEY);
     if (savedHours) document.getElementById('daily-hours-input').value = savedHours;
 
-    buildRankingList(ranks);
+    const savedMax = getCookie(STUDY_MAXSUB_KEY);
+    if (savedMax) document.getElementById('max-subjects-input').value = savedMax;
+
+    buildRankingList(tieredRanks);
   }
 
-  function buildRankingList(ranks) {
+  function buildRankingList(tieredRanks) {
     const list = document.getElementById('ranking-list');
     list.innerHTML = '';
 
-    ranks.forEach((courseId, i) => {
-      const course = getCourse(courseId);
-      if (!course) return;
-      const color = SUBJECT_GROUPS[course.group]?.color || '#888';
-      const dotClass = course.group === 'ap' ? 'rank-dot dot-ap' : 'rank-dot';
+    TIERS.forEach(tier => {
+      const ids = tieredRanks[tier] || [];
+      const section = document.createElement('div');
+      section.className = 'rank-tier';
+      section.dataset.tier = tier;
 
-      const item = document.createElement('div');
-      item.className = 'rank-item';
-      item.dataset.id = courseId;
+      const header = document.createElement('div');
+      header.className = 'rank-tier-header rank-tier-' + tier;
+      header.textContent = TIER_LABELS[tier];
+      section.appendChild(header);
 
-      const num = document.createElement('span');
-      num.className = 'rank-number';
-      num.textContent = i + 1;
+      if (ids.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'rank-tier-empty';
+        empty.textContent = 'No subjects';
+        section.appendChild(empty);
+      }
 
-      const arrows = document.createElement('span');
-      arrows.className = 'rank-arrows';
+      ids.forEach((courseId, i) => {
+        const course = getCourse(courseId);
+        if (!course) return;
+        const color = SUBJECT_GROUPS[course.group]?.color || '#888';
+        const dotClass = course.group === 'ap' ? 'rank-dot dot-ap' : 'rank-dot';
 
-      const upBtn = document.createElement('button');
-      upBtn.className = 'rank-arrow';
-      upBtn.textContent = '\u25B2';
-      upBtn.title = 'Move up (harder)';
-      upBtn.disabled = i === 0;
-      upBtn.addEventListener('click', () => moveRankItem(courseId, -1));
+        const item = document.createElement('div');
+        item.className = 'rank-item';
+        item.dataset.id = courseId;
+        item.dataset.tier = tier;
 
-      const downBtn = document.createElement('button');
-      downBtn.className = 'rank-arrow';
-      downBtn.textContent = '\u25BC';
-      downBtn.title = 'Move down (easier)';
-      downBtn.disabled = i === ranks.length - 1;
-      downBtn.addEventListener('click', () => moveRankItem(courseId, 1));
+        const num = document.createElement('span');
+        num.className = 'rank-number';
+        num.textContent = i + 1;
 
-      arrows.appendChild(upBtn);
-      arrows.appendChild(downBtn);
+        const arrows = document.createElement('span');
+        arrows.className = 'rank-arrows';
 
-      const dot = document.createElement('span');
-      dot.className = dotClass;
-      dot.style.background = color;
+        const upBtn = document.createElement('button');
+        upBtn.className = 'rank-arrow';
+        upBtn.textContent = '\u25B2';
+        upBtn.title = i === 0 ? 'Move to tier above' : 'Move up';
+        const isTopOfFirst = tier === 'hard' && i === 0;
+        upBtn.disabled = isTopOfFirst;
+        upBtn.addEventListener('click', () => moveRankItem(courseId, -1));
 
-      const name = document.createElement('span');
-      name.className = 'rank-name';
-      name.textContent = course.name;
+        const downBtn = document.createElement('button');
+        downBtn.className = 'rank-arrow';
+        downBtn.textContent = '\u25BC';
+        downBtn.title = i === ids.length - 1 ? 'Move to tier below' : 'Move down';
+        const isBottomOfLast = tier === 'easy' && i === ids.length - 1;
+        downBtn.disabled = isBottomOfLast;
+        downBtn.addEventListener('click', () => moveRankItem(courseId, 1));
 
-      const diff = document.createElement('span');
-      diff.className = 'rank-difficulty';
-      diff.textContent = getDiffLabel(i, ranks.length);
+        arrows.appendChild(upBtn);
+        arrows.appendChild(downBtn);
 
-      item.appendChild(num);
-      item.appendChild(arrows);
-      item.appendChild(dot);
-      item.appendChild(name);
-      item.appendChild(diff);
-      list.appendChild(item);
+        const dot = document.createElement('span');
+        dot.className = dotClass;
+        dot.style.background = color;
+
+        const name = document.createElement('span');
+        name.className = 'rank-name';
+        name.textContent = course.name;
+
+        item.appendChild(num);
+        item.appendChild(arrows);
+        item.appendChild(dot);
+        item.appendChild(name);
+        list.appendChild(item);
+      });
+
+      list.appendChild(section);
     });
   }
 
-  function getDiffLabel(index, total) {
-    if (total <= 1) return '';
-    const r = index / (total - 1);
-    if (r <= 0.2) return 'Hardest';
-    if (r <= 0.4) return 'Hard';
-    if (r <= 0.6) return 'Medium';
-    if (r <= 0.8) return 'Easier';
-    return 'Easiest';
-  }
-
   function moveRankItem(courseId, direction) {
-    const items = Array.from(document.querySelectorAll('#ranking-list .rank-item'));
-    const ranks = items.map(el => el.dataset.id);
-    const idx = ranks.indexOf(courseId);
-    if (idx < 0) return;
-    const newIdx = idx + direction;
-    if (newIdx < 0 || newIdx >= ranks.length) return;
-    [ranks[idx], ranks[newIdx]] = [ranks[newIdx], ranks[idx]];
-    setCookie(STUDY_RANK_KEY, JSON.stringify(ranks), 365);
-    buildRankingList(ranks);
+    const tieredRanks = getCurrentRanks();
+    // Find which tier and index
+    let fromTier = null, fromIdx = -1;
+    for (const tier of TIERS) {
+      const idx = tieredRanks[tier].indexOf(courseId);
+      if (idx >= 0) { fromTier = tier; fromIdx = idx; break; }
+    }
+    if (!fromTier) return;
+
+    const tierArr = tieredRanks[fromTier];
+    if (direction === -1) {
+      if (fromIdx > 0) {
+        // Move up within tier
+        [tierArr[fromIdx], tierArr[fromIdx - 1]] = [tierArr[fromIdx - 1], tierArr[fromIdx]];
+      } else {
+        // At top of tier — promote to tier above (append to bottom)
+        const tierIdx = TIERS.indexOf(fromTier);
+        if (tierIdx <= 0) return;
+        const aboveTier = TIERS[tierIdx - 1];
+        tierArr.splice(fromIdx, 1);
+        tieredRanks[aboveTier].push(courseId);
+      }
+    } else {
+      if (fromIdx < tierArr.length - 1) {
+        // Move down within tier
+        [tierArr[fromIdx], tierArr[fromIdx + 1]] = [tierArr[fromIdx + 1], tierArr[fromIdx]];
+      } else {
+        // At bottom of tier — demote to tier below (prepend to top)
+        const tierIdx = TIERS.indexOf(fromTier);
+        if (tierIdx >= TIERS.length - 1) return;
+        const belowTier = TIERS[tierIdx + 1];
+        tierArr.splice(fromIdx, 1);
+        tieredRanks[belowTier].unshift(courseId);
+      }
+    }
+
+    saveTieredRanks(tieredRanks);
+    buildRankingList(tieredRanks);
   }
 
   function getCurrentRanks() {
-    const items = document.querySelectorAll('#ranking-list .rank-item');
-    return Array.from(items).map(el => el.dataset.id);
+    const result = { hard: [], medium: [], easy: [] };
+    TIERS.forEach(tier => {
+      const items = document.querySelectorAll('.rank-item[data-tier="' + tier + '"]');
+      items.forEach(el => result[tier].push(el.dataset.id));
+    });
+    return result;
+  }
+
+  function saveTieredRanks(tieredRanks) {
+    setCookie(STUDY_RANK_KEY, JSON.stringify(tieredRanks), 365);
   }
 
   function generateStudyPlan() {
-    const ranks = getCurrentRanks();
-    if (ranks.length === 0) return;
+    const tieredRanks = getCurrentRanks();
+    const allIds = [].concat(tieredRanks.hard, tieredRanks.medium, tieredRanks.easy);
+    if (allIds.length === 0) return;
 
     const dailyHours = parseFloat(document.getElementById('daily-hours-input').value) || 6;
+    const maxSubjects = parseInt(document.getElementById('max-subjects-input').value) || 5;
     setCookie(STUDY_HOURS_KEY, String(dailyHours), 365);
-    setCookie(STUDY_RANK_KEY, JSON.stringify(ranks), 365);
+    setCookie(STUDY_MAXSUB_KEY, String(maxSubjects), 365);
+    saveTieredRanks(tieredRanks);
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const N = ranks.length;
-    const courseData = ranks.map((courseId, rankIndex) => {
+    // Build course data with tier info
+    // Tier weights: hard items get more, medium moderate, easy minimal
+    const TIER_WEIGHT = { hard: 3, medium: 1.5, easy: 0.3 };
+
+    const courseData = allIds.map(courseId => {
       const course = getCourse(courseId);
       const exams = EXAMS.filter(e => e.courseIds.includes(courseId));
       const sorted = [...exams].sort((a, b) => a.date.localeCompare(b.date));
@@ -1305,17 +1383,30 @@
       const examDate = firstExam ? new Date(firstExam.date + 'T00:00:00') : new Date('2026-05-20T00:00:00');
       const lastExamDate = lastExam ? new Date(lastExam.date + 'T00:00:00') : examDate;
       const daysUntil = Math.max(1, Math.ceil((examDate - today) / 86400000));
-      const diffWeight = N - rankIndex; // index 0 = hardest = highest weight
       const totalExamMins = exams.reduce((s, e) => s + e.duration, 0);
-      const examDates = [...new Set(exams.map(e => e.date))]; // unique exam dates
+      const examDates = [...new Set(exams.map(e => e.date))];
+
+      // Determine tier and within-tier rank
+      let tier = 'easy', rankInTier = 0;
+      for (const t of TIERS) {
+        const idx = tieredRanks[t].indexOf(courseId);
+        if (idx >= 0) { tier = t; rankInTier = idx; break; }
+      }
+
+      const tierCount = tieredRanks[tier].length;
+      // Within-tier weight: top of tier = full tier weight, bottom = slightly less
+      const withinWeight = tierCount <= 1 ? 1 : 1 - (rankInTier / tierCount) * 0.4;
+      const diffWeight = TIER_WEIGHT[tier] * withinWeight;
+
       return {
         courseId, course, examDate, lastExamDate, daysUntil,
-        rankIndex, diffWeight, totalHours: 0, totalExamMins, examDates
+        tier, rankInTier, diffWeight, totalHours: 0,
+        totalExamMins, examDates
       };
     });
 
-    // Build a set of all exam dates for quick lookup
-    const allExamDateMap = {}; // date -> [courseIds with exams]
+    // Build exam date lookup
+    const allExamDateMap = {};
     courseData.forEach(c => {
       c.examDates.forEach(d => {
         if (!allExamDateMap[d]) allExamDateMap[d] = [];
@@ -1330,7 +1421,6 @@
       if (saved) customHours = JSON.parse(saved);
     } catch (e) { customHours = null; }
 
-    // Compute total study days available per subject (exclude dates on/after their last exam)
     const maxDate = new Date(Math.max(...courseData.map(c => c.examDate.getTime())));
     const totalDays = Math.max(1, Math.ceil((maxDate - today) / 86400000));
 
@@ -1339,11 +1429,9 @@
         c.totalHours = customHours[c.courseId] !== undefined ? customHours[c.courseId] : 0;
       });
     } else {
-      // Weighted allocation: difficulty × exam weight × log(daysUntil+1)
-      // Harder subjects get more; heavier exams (more total minutes) get more;
-      // subjects with more prep time get slightly more (diminishing)
+      // Tier-weighted allocation
       courseData.forEach(c => {
-        const examWeight = Math.sqrt(c.totalExamMins / 60); // sqrt of exam hours
+        const examWeight = Math.sqrt(c.totalExamMins / 60);
         c.score = c.diffWeight * examWeight * Math.log2(c.daysUntil + 1);
       });
       const totalScore = courseData.reduce((s, c) => s + c.score, 0);
@@ -1353,8 +1441,7 @@
       });
     }
 
-    // ===== Iterative daily scheduler with convergence =====
-    // Track hours delivered per subject to ensure totals converge
+    // ===== Iterative daily scheduler with tier priority =====
     const delivered = {};
     courseData.forEach(c => { delivered[c.courseId] = 0; });
 
@@ -1364,62 +1451,64 @@
       date.setDate(date.getDate() + d);
       const dateStr = formatDate(date);
 
-      // Subjects still active: before their first exam date
-      const active = courseData.filter(c => {
-        return date < c.examDate;
-      });
+      // Active subjects: exams haven't started yet
+      const active = courseData.filter(c => date < c.examDate);
       if (active.length === 0) continue;
 
-      // Check what's being examined today
       const examToday = allExamDateMap[dateStr] || [];
 
-      // Compute urgency-weighted priority per subject
+      // Check if any hard/medium subjects have exams still upcoming
+      const hasHardMediumExams = active.some(c => c.tier === 'hard' || c.tier === 'medium');
+
+      // Compute priorities
       const priorities = active.map(c => {
         const daysLeft = Math.max(1, Math.ceil((c.examDate - date) / 86400000));
         const remaining = Math.max(0, c.totalHours - delivered[c.courseId]);
-        if (remaining <= 0) return { courseId: c.courseId, priority: 0 };
+        if (remaining <= 0) return { courseId: c.courseId, priority: 0, tier: c.tier };
 
-        // Base priority: remaining hours needed / days left = needed daily rate
-        let priority = remaining / daysLeft;
-
-        // Urgency multiplier: ramp up as exam approaches
-        if (daysLeft <= 1) priority *= 3.0;      // day before exam → strong boost
-        else if (daysLeft <= 3) priority *= 2.0;  // 2-3 days out
-        else if (daysLeft <= 7) priority *= 1.3;  // within a week
-
-        // Difficulty bonus: harder subjects get a small persistent boost
-        priority *= (1 + c.diffWeight * 0.05);
-
-        // If this subject has an exam today, reduce its allocation
-        // (student is taking the exam, not studying)
-        if (examToday.includes(c.courseId)) {
-          priority *= 0.15; // light review only
+        // Easy subjects only studied if no hard/medium remain active
+        if (c.tier === 'easy' && hasHardMediumExams) {
+          return { courseId: c.courseId, priority: 0, tier: c.tier };
         }
 
-        return { courseId: c.courseId, priority, remaining, daysLeft };
+        let priority = remaining / daysLeft;
+
+        // Urgency
+        if (daysLeft <= 1) priority *= 3.0;
+        else if (daysLeft <= 3) priority *= 2.0;
+        else if (daysLeft <= 7) priority *= 1.3;
+
+        // Tier boost
+        priority *= (1 + c.diffWeight * 0.1);
+
+        // Exam day reduction
+        if (examToday.includes(c.courseId)) {
+          priority *= 0.15;
+        }
+
+        return { courseId: c.courseId, priority, remaining, daysLeft, tier: c.tier };
       }).filter(p => p.priority > 0);
 
       if (priorities.length === 0) continue;
 
       const totalPriority = priorities.reduce((s, p) => s + p.priority, 0);
 
-      // Allocate proportionally to priority, respecting daily limit
       let allocations = priorities.map(p => ({
         courseId: p.courseId,
         hours: Math.round((p.priority / totalPriority) * dailyHours * 4) / 4,
-        daysLeft: p.daysLeft
+        tier: p.tier
       }));
 
-      // Enforce minimum block size (0.5h min per subject) - drop tiny allocations
+      // Drop tiny allocations
       allocations = allocations.filter(a => a.hours >= 0.25);
 
-      // If too many subjects, cap at reasonable max (top 5 by allocation)
-      if (allocations.length > 5) {
+      // Cap at user-configured max subjects
+      if (allocations.length > maxSubjects) {
         allocations.sort((a, b) => b.hours - a.hours);
-        allocations = allocations.slice(0, 5);
+        allocations = allocations.slice(0, maxSubjects);
       }
 
-      // Re-normalize to hit daily hours target
+      // Re-normalize
       const allocTotal = allocations.reduce((s, a) => s + a.hours, 0);
       if (allocTotal > 0 && Math.abs(allocTotal - dailyHours) > 0.25) {
         const scale = dailyHours / allocTotal;
@@ -1428,14 +1517,13 @@
         });
       }
 
-      // Cap at remaining needed (don't over-deliver)
+      // Cap at remaining needed
       allocations.forEach(a => {
         const remaining = Math.max(0, courseData.find(c => c.courseId === a.courseId).totalHours - delivered[a.courseId]);
         a.hours = Math.min(a.hours, Math.ceil(remaining * 4) / 4);
       });
       allocations = allocations.filter(a => a.hours >= 0.25);
 
-      // Update delivered totals
       allocations.forEach(a => { delivered[a.courseId] += a.hours; });
 
       if (allocations.length > 0) {
@@ -1444,7 +1532,6 @@
       }
     }
 
-    // Compute delivery stats
     courseData.forEach(c => {
       c.deliveredHours = Math.round(delivered[c.courseId] * 2) / 2;
     });
@@ -1466,7 +1553,12 @@
     sHtml += '<p class="selector-hint">Adjust total hours per subject, then regenerate.</p>';
     sHtml += '<div class="study-alloc-list">';
 
+    let lastTier = '';
     courseData.forEach(c => {
+      if (c.tier !== lastTier) {
+        lastTier = c.tier;
+        sHtml += '<div class="sa-tier-label sa-tier-' + c.tier + '">' + TIER_LABELS[c.tier] + '</div>';
+      }
       const color = SUBJECT_GROUPS[c.course.group]?.color || '#888';
       const dotClass = c.course.group === 'ap' ? 'sa-dot dot-ap' : 'sa-dot';
       const pct = c.totalHours > 0 ? Math.round((c.deliveredHours / c.totalHours) * 100) : 0;
