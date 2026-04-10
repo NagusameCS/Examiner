@@ -1,6 +1,6 @@
-# IB Examiner
+# Examiner
 
-A free, open-source exam calendar tool for IB Diploma Programme students taking the **May 2026** examination session.
+A free, open-source exam calendar tool for students taking **May 2026** exams (IB, AP, and more).
 
 View the full exam schedule, build a personal calendar with your subjects, get study statistics, and export to Google Calendar, Outlook, SVG, or spreadsheet — all running entirely in your browser with zero data collection.
 
@@ -11,13 +11,13 @@ View the full exam schedule, build a personal calendar with your subjects, get s
 ## Features
 
 ### Full Exam Calendar
-- Color-coded calendar view of every IB May 2026 exam
-- Subject groups distinguished by color: Languages, Individuals & Societies, Sciences, Mathematics, Arts, Interdisciplinary
+- Color-coded calendar view of every May 2026 exam
+- Subject groups distinguished by color: Languages, Individuals & Societies, Sciences, Mathematics, Arts, Interdisciplinary, AP
 - Hover on any day to see the complete exam list with durations
 - Search any subject to highlight its exam days on the calendar
 
 ### Personal Calendar
-- Select your IB subjects from a dropdown (up to 7)
+- Select your subjects from a searchable dropdown
 - Generate a filtered calendar showing only your exams
 - Selections saved in your browser for return visits
 
@@ -64,7 +64,7 @@ Session times in .ics exports default to Zone B (Morning 09:00, Afternoon 14:00)
 
 ## Disclaimer
 
-This tool is **not affiliated with or endorsed by the International Baccalaureate Organization (IBO)**. It is an independent, free resource for students. Always verify your exam schedule with your IB coordinator.
+This tool is **not affiliated with or endorsed by the International Baccalaureate Organization (IBO) or the College Board**. It is an independent, free resource for students. Always verify your exam schedule with your school coordinator.
 
 ---
 

@@ -3,50 +3,40 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IB Examiner — May 2026 Exam Calendar</title>
-  <meta name="description" content="Free IB May 2026 exam calendar tool. View the full schedule, build your personal calendar, get study stats, and export to Google/Outlook Calendar.">
+  <title>Examiner — May 2026 Exam Calendar</title>
+  <meta name="description" content="Free May 2026 exam calendar tool. View the full schedule, build your personal calendar, get study stats, and export to Google/Outlook Calendar.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='10' cy='20' r='7' fill='%234A9EFF'/><polygon points='22,5 15,19 29,19' fill='%2300B4D8'/></svg>">
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
 </head>
 <body>
-  <!-- Navigation -->
   <nav id="navbar">
     <div class="nav-inner">
-      <a href="#" class="nav-brand" onclick="showLanding(); return false;">
-        <i class="fas fa-calendar-check"></i> IB Examiner
-      </a>
+      <a href="#/" class="nav-brand">Examiner</a>
       <ul class="nav-links" id="nav-links">
-        <li><a href="#" onclick="showView('full-calendar'); return false;" data-view="full-calendar">Exam Calendar</a></li>
-        <li><a href="#" onclick="showView('personal'); return false;" data-view="personal">My Calendar</a></li>
+        <li><a href="#/calendar" data-view="calendar">Exam Calendar</a></li>
+        <li><a href="#/select" data-view="select">My Calendar</a></li>
       </ul>
     </div>
   </nav>
 
-  <!-- Landing Screen -->
   <section id="landing" class="view active">
     <div class="landing-content">
-      <h1>IB Examiner</h1>
-      <p class="landing-sub">May 2026 Examination Schedule</p>
-      <p class="landing-desc">A free tool for IB students. View the complete exam calendar or build your personal schedule with study stats and exports.</p>
+      <h1>Examiner</h1>
+      <p class="landing-sub">May 2026 Exam Schedule</p>
+      <p class="landing-desc">View the complete exam calendar, build your personal schedule, get study stats, detect conflicts, and export — all free, no sign-up needed.</p>
       <div class="landing-actions">
-        <button class="btn btn-primary" onclick="showView('full-calendar')">
-          <i class="fas fa-calendar-alt"></i> View Exam Calendar
-        </button>
-        <button class="btn btn-secondary" onclick="showView('personal')">
-          <i class="fas fa-user-graduate"></i> Build My Calendar
-        </button>
+        <a href="#/calendar" class="btn btn-primary">View Exam Calendar</a>
+        <a href="#/select" class="btn btn-secondary">Build My Calendar</a>
       </div>
       <p class="landing-credit">Built by <a href="https://nagusamecs.github.io" target="_blank">NagusameCS</a> — free &amp; open source</p>
     </div>
   </section>
 
-  <!-- Full Exam Calendar View -->
-  <section id="full-calendar" class="view">
+  <section id="calendar" class="view">
     <div class="container">
       <div class="view-header">
         <h2 class="section-title"><span>May 2026 Exam Calendar</span></h2>
         <div class="search-bar">
-          <i class="fas fa-search"></i>
           <input type="text" id="search-input" placeholder="Search subjects..." autocomplete="off">
           <button class="search-clear" id="search-clear" title="Clear">&times;</button>
         </div>
@@ -56,63 +46,59 @@
     </div>
   </section>
 
-  <!-- Personal Calendar View -->
-  <section id="personal" class="view">
+  <section id="select" class="view">
+    <div class="container">
+      <div class="view-header">
+        <h2 class="section-title"><span>Build My Calendar</span></h2>
+      </div>
+      <div class="subject-selector" id="subject-selector">
+        <h3>Select Your Subjects</h3>
+        <p class="selector-hint">Add your subjects below. Type to search by name or category.</p>
+        <div class="selected-courses" id="selected-courses"></div>
+        <div class="add-course-row">
+          <div class="searchable-dropdown" id="searchable-dropdown">
+            <input type="text" id="course-search-input" class="course-search-input" placeholder="Search subjects (e.g. &quot;Physics&quot;, &quot;AP&quot;, &quot;Sciences&quot;)..." autocomplete="off">
+            <div class="dropdown-list" id="dropdown-list"></div>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="generate-btn" disabled>Generate My Calendar</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="my" class="view">
     <div class="container">
       <div class="view-header">
         <h2 class="section-title"><span>My Exam Calendar</span></h2>
       </div>
-
-      <!-- Subject Selector -->
-      <div class="subject-selector" id="subject-selector">
-        <h3>Select Your Subjects</h3>
-        <p class="selector-hint">Add each of your IB subjects below. You can add up to 7 subjects.</p>
-        <div class="selected-courses" id="selected-courses"></div>
-        <div class="add-course-row">
-          <select id="course-dropdown" class="course-dropdown">
-            <option value="">— Select a subject to add —</option>
-          </select>
-          <button class="btn btn-primary btn-sm" id="add-course-btn" onclick="addSelectedCourse()">
-            <i class="fas fa-plus"></i> Add
-          </button>
-        </div>
-        <button class="btn btn-primary" id="generate-btn" onclick="generatePersonalCalendar()" disabled>
-          <i class="fas fa-calendar-check"></i> Generate My Calendar
-        </button>
-      </div>
-
-      <!-- Personal Calendar Result -->
-      <div id="personal-result" class="personal-result" style="display:none;">
-        <!-- Stats Panel -->
+      <div id="personal-result" class="personal-result">
+        <div id="conflict-banner" class="conflict-banner" style="display:none;"></div>
         <div class="stats-panel" id="stats-panel"></div>
-
-        <!-- Export Buttons -->
         <div class="export-bar">
-          <button class="btn btn-secondary btn-sm" onclick="exportSVG()"><i class="fas fa-image"></i> Export SVG</button>
-          <button class="btn btn-secondary btn-sm" onclick="exportICS('google')"><i class="fab fa-google"></i> Google Calendar</button>
-          <button class="btn btn-secondary btn-sm" onclick="exportICS('outlook')"><i class="fab fa-microsoft"></i> Outlook Calendar</button>
-          <button class="btn btn-secondary btn-sm" onclick="exportCSV()"><i class="fas fa-file-csv"></i> Spreadsheet</button>
+          <button class="btn btn-secondary btn-sm" id="btn-export-svg">Export SVG</button>
+          <button class="btn btn-secondary btn-sm" id="btn-export-google">Google Calendar</button>
+          <button class="btn btn-secondary btn-sm" id="btn-export-outlook">Outlook Calendar</button>
+          <button class="btn btn-secondary btn-sm" id="btn-export-csv">Spreadsheet</button>
+          <button class="btn btn-secondary btn-sm" id="btn-copy-link">Copy Link</button>
         </div>
-
-        <!-- Personal Calendar Grid -->
         <div class="calendar-grid" id="personal-calendar-grid"></div>
-
-        <!-- Exam List -->
         <div class="exam-list-section">
           <h3>Your Exam Schedule</h3>
           <div id="personal-exam-list" class="exam-list"></div>
+        </div>
+        <div class="edit-subjects-bar">
+          <a href="#/select" class="btn btn-secondary btn-sm">Edit Subjects</a>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Day Tooltip -->
   <div id="tooltip" class="tooltip"></div>
 
   <footer>
     <div class="container">
-      <p>IB Examiner — A free tool by <a href="https://nagusamecs.github.io" target="_blank">NagusameCS</a></p>
-      <p class="footer-note">Data from the official IB May 2026 Examination Schedule (Final Version). This tool is not affiliated with or endorsed by the IB.</p>
+      <p>Examiner — A free tool by <a href="https://nagusamecs.github.io" target="_blank">NagusameCS</a></p>
+      <p class="footer-note">Data sourced from official IB and College Board 2026 exam schedules. Not affiliated with or endorsed by the IB or College Board.</p>
     </div>
   </footer>
 

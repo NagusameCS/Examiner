@@ -1,4 +1,4 @@
-// ===== IB Examiner — Main Application =====
+// ===== Examiner — Main Application =====
 // All computation runs client-side. No server required.
 
 (function () {
@@ -7,8 +7,8 @@
   // ===== State =====
   let selectedCourseIds = [];
   let currentView = 'landing';
-  const STORAGE_KEY = 'ib_examiner_courses';
-  const FIRST_VISIT_KEY = 'ib_examiner_visited';
+  const STORAGE_KEY = 'examiner_courses';
+  const FIRST_VISIT_KEY = 'examiner_visited';
 
   // ===== Init =====
   document.addEventListener('DOMContentLoaded', () => {
@@ -16,13 +16,14 @@
     buildCourseDropdown();
     loadSavedCourses();
     setupSearch();
+    setupNavigation();
 
     const visited = localStorage.getItem(FIRST_VISIT_KEY);
     if (visited) {
       // Returning user — check if they have saved courses
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved && JSON.parse(saved).length > 0) {
-        showView('personal');
+        showView('my');
         generatePersonalCalendar();
       } else {
         showView('landing');
@@ -32,6 +33,53 @@
     }
     localStorage.setItem(FIRST_VISIT_KEY, '1');
   });
+
+  function setupNavigation() {
+    // Generate button
+    document.getElementById('generate-btn').addEventListener('click', () => {
+      generatePersonalCalendar();
+      showView('my');
+    });
+
+    // Export buttons
+    document.getElementById('btn-export-svg').addEventListener('click', () => exportSVG());
+    document.getElementById('btn-export-google').addEventListener('click', () => exportICS('google'));
+    document.getElementById('btn-export-outlook').addEventListener('click', () => exportICS('outlook'));
+    document.getElementById('btn-export-csv').addEventListener('click', () => exportCSV());
+    document.getElementById('btn-copy-link').addEventListener('click', () => copyShareLink());
+
+    // Nav links
+    document.querySelectorAll('.nav-links a[data-view]').forEach(a => {
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        showView(a.dataset.view);
+      });
+    });
+
+    // Landing buttons
+    document.querySelectorAll('.landing-actions a').forEach(a => {
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        const hash = a.getAttribute('href');
+        if (hash === '#/calendar') showView('calendar');
+        else if (hash === '#/select') showView('select');
+      });
+    });
+
+    // Edit subjects link
+    document.querySelectorAll('.edit-subjects-bar a').forEach(a => {
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        showView('select');
+      });
+    });
+
+    // Brand link -> landing
+    document.querySelector('.nav-brand').addEventListener('click', (e) => {
+      e.preventDefault();
+      showView('landing');
+    });
+  }
 
   // ===== View Management =====
   window.showView = function (viewId) {
@@ -49,7 +97,7 @@
     document.getElementById('nav-links').style.display = viewId === 'landing' ? 'none' : '';
 
     // Build calendar when showing full calendar
-    if (viewId === 'full-calendar') {
+    if (viewId === 'calendar') {
       buildFullCalendar();
     }
   };
@@ -65,13 +113,14 @@
     for (const [key, g] of Object.entries(SUBJECT_GROUPS)) {
       const item = document.createElement('div');
       item.className = 'legend-item';
-      item.innerHTML = `<span class="legend-dot" style="background:${g.color}"></span>${g.label}`;
+      const shapeClass = key === 'ap' ? 'legend-dot dot-ap' : 'legend-dot';
+      item.innerHTML = `<span class="${shapeClass}" style="background:${g.color}"></span>${g.label}`;
       legend.appendChild(item);
     }
   }
 
   // ===== Calendar Building =====
-  function buildCalendar(containerId, exams, highlightQuery) {
+  function buildCalendar(containerId, exams, highlightQuery, conflictDates) {
     const container = document.getElementById(containerId);
     container.innerHTML = '';
 
@@ -142,7 +191,7 @@
           dots.className = 'day-dots';
           morningExams.forEach(exam => {
             const dot = document.createElement('div');
-            dot.className = 'day-dot';
+            dot.className = exam.group === 'ap' ? 'day-dot dot-ap' : 'day-dot';
             const color = SUBJECT_GROUPS[exam.group]?.color || '#888';
             dot.style.backgroundColor = color;
             dot.style.color = color;
@@ -172,7 +221,7 @@
           dots.className = 'day-dots';
           afternoonExams.forEach(exam => {
             const dot = document.createElement('div');
-            dot.className = 'day-dot';
+            dot.className = exam.group === 'ap' ? 'day-dot dot-ap' : 'day-dot';
             const color = SUBJECT_GROUPS[exam.group]?.color || '#888';
             dot.style.backgroundColor = color;
             dot.style.color = color;
@@ -195,6 +244,11 @@
         if (highlightQuery) {
           const anyMatch = dayExams.some(e => e.name.toLowerCase().includes(highlightQuery.toLowerCase()));
           if (anyMatch) cell.classList.add('highlighted');
+        }
+
+        // Conflict highlighting
+        if (conflictDates && conflictDates.has(dateStr)) {
+          cell.classList.add('has-conflict');
         }
 
         // Tooltip on hover
@@ -228,8 +282,9 @@
       html += `<div class="tooltip-session">Morning Session</div>`;
       morningExams.forEach(exam => {
         const color = SUBJECT_GROUPS[exam.group]?.color || '#888';
+        const dotClass = exam.group === 'ap' ? 't-dot dot-ap' : 't-dot';
         html += `<div class="tooltip-exam">
-          <span class="t-dot" style="background:${sanitize(color)}"></span>
+          <span class="${dotClass}" style="background:${sanitize(color)}"></span>
           <span class="t-name">${sanitize(exam.name)}</span>
           <span class="t-dur">${formatDuration(exam.duration)}</span>
         </div>`;
@@ -240,8 +295,9 @@
       html += `<div class="tooltip-session">Afternoon Session</div>`;
       afternoonExams.forEach(exam => {
         const color = SUBJECT_GROUPS[exam.group]?.color || '#888';
+        const dotClass = exam.group === 'ap' ? 't-dot dot-ap' : 't-dot';
         html += `<div class="tooltip-exam">
-          <span class="t-dot" style="background:${sanitize(color)}"></span>
+          <span class="${dotClass}" style="background:${sanitize(color)}"></span>
           <span class="t-name">${sanitize(exam.name)}</span>
           <span class="t-dur">${formatDuration(exam.duration)}</span>
         </div>`;
@@ -290,53 +346,118 @@
     });
   }
 
-  // ===== Course Selector =====
-  function buildCourseDropdown() {
-    const dropdown = document.getElementById('course-dropdown');
+  // ===== Course Selector (Searchable Dropdown) =====
+  const COURSE_GROUPS = {
+    'Studies in Language & Literature': c =>
+      c.id.startsWith('lang_a_') || c.id.startsWith('english_a_') ||
+      c.id.startsWith('french_a_') || c.id.startsWith('spanish_a_') ||
+      c.id === 'lit_performance_sl',
+    'Language Acquisition': c =>
+      c.id.startsWith('lang_b_') || c.id.startsWith('lang_ab_') ||
+      c.id.startsWith('english_b_') || c.id.startsWith('english_ab_') ||
+      c.id.startsWith('french_b_') || c.id.startsWith('french_ab_') ||
+      c.id.startsWith('spanish_b_') || c.id.startsWith('spanish_ab_') ||
+      c.id.startsWith('latin_') || c.id.startsWith('classical_greek_'),
+    'Individuals & Societies': c => c.group === 'individuals',
+    'Sciences': c => c.group === 'sciences',
+    'Mathematics': c => c.group === 'mathematics',
+    'Interdisciplinary': c => c.group === 'interdisciplinary',
+    'AP Exams': c => c.group === 'ap',
+  };
 
-    const groups = {
-      'Studies in Language & Literature': COURSES.filter(c =>
-        c.id.startsWith('lang_a_') || c.id.startsWith('english_a_') ||
-        c.id.startsWith('french_a_') || c.id.startsWith('spanish_a_') ||
-        c.id === 'lit_performance_sl'
-      ),
-      'Language Acquisition': COURSES.filter(c =>
-        c.id.startsWith('lang_b_') || c.id.startsWith('lang_ab_') ||
-        c.id.startsWith('english_b_') || c.id.startsWith('english_ab_') ||
-        c.id.startsWith('french_b_') || c.id.startsWith('french_ab_') ||
-        c.id.startsWith('spanish_b_') || c.id.startsWith('spanish_ab_') ||
-        c.id.startsWith('latin_') || c.id.startsWith('classical_greek_')
-      ),
-      'Individuals & Societies': COURSES.filter(c => c.group === 'individuals'),
-      'Sciences': COURSES.filter(c => c.group === 'sciences'),
-      'Mathematics': COURSES.filter(c => c.group === 'mathematics'),
-      'Interdisciplinary': COURSES.filter(c => c.group === 'interdisciplinary'),
-    };
-
-    for (const [label, courses] of Object.entries(groups)) {
-      const optgroup = document.createElement('optgroup');
-      optgroup.label = label;
-      courses.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c.id;
-        opt.textContent = c.name;
-        optgroup.appendChild(opt);
-      });
-      dropdown.appendChild(optgroup);
+  function getCourseGroupLabel(course) {
+    for (const [label, fn] of Object.entries(COURSE_GROUPS)) {
+      if (fn(course)) return label;
     }
+    return 'Other';
   }
 
-  window.addSelectedCourse = function () {
-    const dropdown = document.getElementById('course-dropdown');
-    const id = dropdown.value;
-    if (!id || selectedCourseIds.includes(id)) return;
-    if (selectedCourseIds.length >= 7) return;
+  function buildCourseDropdown() {
+    const input = document.getElementById('course-search-input');
+    const listEl = document.getElementById('dropdown-list');
+    const wrapper = document.getElementById('searchable-dropdown');
 
+    function renderDropdownList(query) {
+      listEl.innerHTML = '';
+      const q = (query || '').toLowerCase().trim();
+      const words = q.split(/\s+/).filter(Boolean);
+
+      // Build grouped list
+      for (const [groupLabel, filterFn] of Object.entries(COURSE_GROUPS)) {
+        let courses = COURSES.filter(filterFn);
+
+        // Filter by search query — match all words against name, group label, category, level
+        if (words.length > 0) {
+          courses = courses.filter(c => {
+            const haystack = [
+              c.name,
+              groupLabel,
+              c.category || '',
+              c.level || '',
+              c.group
+            ].join(' ').toLowerCase();
+            return words.every(w => haystack.includes(w));
+          });
+        }
+
+        // Exclude already selected
+        courses = courses.filter(c => !selectedCourseIds.includes(c.id));
+
+        if (courses.length === 0) continue;
+
+        const header = document.createElement('div');
+        header.className = 'dropdown-group-header';
+        header.textContent = groupLabel;
+        listEl.appendChild(header);
+
+        courses.forEach(c => {
+          const item = document.createElement('div');
+          item.className = 'dropdown-item';
+          item.dataset.id = c.id;
+          const color = SUBJECT_GROUPS[c.group]?.color || '#888';
+          const dotClass = c.group === 'ap' ? 'dropdown-dot dot-ap' : 'dropdown-dot';
+          item.innerHTML = `<span class="${dotClass}" style="background:${sanitize(color)}"></span>${sanitize(c.name)}`;
+          item.addEventListener('click', () => {
+            addCourseById(c.id);
+            input.value = '';
+            listEl.classList.remove('visible');
+          });
+          listEl.appendChild(item);
+        });
+      }
+
+      if (listEl.children.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'dropdown-empty';
+        empty.textContent = 'No matching subjects found';
+        listEl.appendChild(empty);
+      }
+    }
+
+    input.addEventListener('focus', () => {
+      renderDropdownList(input.value);
+      listEl.classList.add('visible');
+    });
+
+    input.addEventListener('input', () => {
+      renderDropdownList(input.value);
+      listEl.classList.add('visible');
+    });
+
+    // Close on click outside
+    document.addEventListener('click', (e) => {
+      if (!wrapper.contains(e.target)) {
+        listEl.classList.remove('visible');
+      }
+    });
+  }
+
+  function addCourseById(id) {
+    if (!id || selectedCourseIds.includes(id)) return;
     selectedCourseIds.push(id);
     saveCourses();
     renderSelectedCourses();
-    dropdown.value = '';
-  };
+  }
 
   function removeCourse(id) {
     selectedCourseIds = selectedCourseIds.filter(c => c !== id);
@@ -382,6 +503,122 @@
     }
   }
 
+  // ===== Conflict Detection =====
+  function detectConflicts(myExams) {
+    const conflicts = [];
+    // Group exams by date + session
+    const bySlot = {};
+    myExams.forEach(exam => {
+      const key = `${exam.date}|${exam.session}`;
+      if (!bySlot[key]) bySlot[key] = [];
+      bySlot[key].push(exam);
+    });
+
+    // Same-slot conflicts (same date + same session)
+    for (const [key, exams] of Object.entries(bySlot)) {
+      if (exams.length > 1) {
+        const [date, session] = key.split('|');
+        conflicts.push({
+          type: 'same-session',
+          date,
+          session,
+          exams: exams.map(e => e.name),
+          severity: 'high'
+        });
+      }
+    }
+
+    // Same-day heavy load (3+ exams in one day)
+    const byDate = {};
+    myExams.forEach(exam => {
+      if (!byDate[exam.date]) byDate[exam.date] = [];
+      byDate[exam.date].push(exam);
+    });
+    for (const [date, exams] of Object.entries(byDate)) {
+      if (exams.length >= 3) {
+        conflicts.push({
+          type: 'heavy-day',
+          date,
+          session: null,
+          exams: exams.map(e => e.name),
+          severity: 'medium'
+        });
+      }
+    }
+
+    // Back-to-back days with high total duration
+    const sortedDates = Object.keys(byDate).sort();
+    for (let i = 0; i < sortedDates.length - 1; i++) {
+      const d1 = sortedDates[i];
+      const d2 = sortedDates[i + 1];
+      const date1 = new Date(d1 + 'T00:00:00');
+      const date2 = new Date(d2 + 'T00:00:00');
+      const diffDays = (date2 - date1) / (1000 * 60 * 60 * 24);
+      if (diffDays === 1) {
+        const totalMins = [...byDate[d1], ...byDate[d2]].reduce((s, e) => s + e.duration, 0);
+        if (totalMins >= 360) { // 6+ hours across consecutive days
+          conflicts.push({
+            type: 'consecutive-heavy',
+            date: d1,
+            session: null,
+            exams: [...byDate[d1], ...byDate[d2]].map(e => e.name),
+            severity: 'low'
+          });
+        }
+      }
+    }
+
+    return conflicts;
+  }
+
+  function getConflictDates(conflicts) {
+    const dates = new Set();
+    conflicts.forEach(c => {
+      if (c.type === 'same-session' || c.type === 'heavy-day') {
+        dates.add(c.date);
+      }
+    });
+    return dates;
+  }
+
+  function renderConflictBanner(conflicts) {
+    const banner = document.getElementById('conflict-banner');
+    if (conflicts.length === 0) {
+      banner.style.display = 'none';
+      return;
+    }
+
+    const highConflicts = conflicts.filter(c => c.severity === 'high');
+    const medConflicts = conflicts.filter(c => c.severity === 'medium');
+    const lowConflicts = conflicts.filter(c => c.severity === 'low');
+
+    let html = '<h4>⚠ Schedule Conflicts Detected</h4><ul>';
+
+    highConflicts.forEach(c => {
+      const dateObj = new Date(c.date + 'T00:00:00');
+      const label = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      html += `<li><strong>Time conflict</strong> on ${label} (${c.session}): ${c.exams.map(e => sanitize(e)).join(', ')}</li>`;
+    });
+
+    medConflicts.forEach(c => {
+      const dateObj = new Date(c.date + 'T00:00:00');
+      const label = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      html += `<li><strong>Heavy day</strong> on ${label}: ${c.exams.length} exams scheduled</li>`;
+    });
+
+    lowConflicts.forEach(c => {
+      const dateObj = new Date(c.date + 'T00:00:00');
+      const d2 = new Date(new Date(c.date + 'T00:00:00').getTime() + 86400000);
+      const label1 = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      const label2 = d2.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      html += `<li><strong>Heavy stretch</strong> ${label1} – ${label2}: ${c.exams.length} exams, high total duration</li>`;
+    });
+
+    html += '</ul>';
+    banner.innerHTML = html;
+    banner.style.display = 'block';
+  }
+
   // ===== Personal Calendar =====
   window.generatePersonalCalendar = function () {
     if (selectedCourseIds.length === 0) return;
@@ -389,20 +626,28 @@
     const myExams = getExamsForCourses(selectedCourseIds);
     myExams.sort((a, b) => a.date.localeCompare(b.date) || (a.session === 'morning' ? -1 : 1));
 
-    // Build calendar
-    buildCalendar('personal-calendar-grid', myExams);
+    // Detect conflicts
+    const conflicts = detectConflicts(myExams);
+    const conflictDates = getConflictDates(conflicts);
+
+    // Build calendar with conflict info
+    buildCalendar('personal-calendar-grid', myExams, undefined, conflictDates);
+
+    // Show conflict banner
+    renderConflictBanner(conflicts);
 
     // Build stats
     buildStats(myExams);
 
-    // Build exam list
-    buildExamList(myExams);
+    // Build exam list with conflict highlights
+    buildExamList(myExams, conflicts);
 
     // Show result
     document.getElementById('personal-result').style.display = 'block';
 
-    // Scroll to stats
-    document.getElementById('stats-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Scroll to result
+    const scrollTarget = conflicts.length > 0 ? document.getElementById('conflict-banner') : document.getElementById('stats-panel');
+    scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   function buildStats(myExams) {
@@ -469,9 +714,10 @@
     let breakdownHtml = '<div class="stat-breakdown">';
     for (const [cid, data] of Object.entries(perSubject)) {
       const color = SUBJECT_GROUPS[data.course.group]?.color || '#888';
+      const sbClass = data.course.group === 'ap' ? 'sb-dot dot-ap' : 'sb-dot';
       breakdownHtml += `
         <div class="stat-breakdown-item">
-          <span class="sb-dot" style="background:${sanitize(color)}"></span>
+          <span class="${sbClass}" style="background:${sanitize(color)}"></span>
           <span class="sb-name">${sanitize(data.course.name)}</span>
           <span class="sb-val">${data.examCount} exam${data.examCount !== 1 ? 's' : ''} · ${formatDuration(data.totalMinutes)}</span>
         </div>`;
@@ -491,9 +737,10 @@
       const color = SUBJECT_GROUPS[data.course.group]?.color || '#888';
       const examDate = new Date(data.firstExamDate + 'T00:00:00');
       const daysUntil = Math.max(0, Math.ceil((examDate - now) / (1000 * 60 * 60 * 24)));
+      const sbClass2 = data.course.group === 'ap' ? 'sb-dot dot-ap' : 'sb-dot';
       studyHtml += `
         <div class="stat-breakdown-item">
-          <span class="sb-dot" style="background:${sanitize(color)}"></span>
+          <span class="${sbClass2}" style="background:${sanitize(color)}"></span>
           <span class="sb-name">${sanitize(data.course.name)}</span>
           <span class="sb-val">${daysUntil} day${daysUntil !== 1 ? 's' : ''} until first paper</span>
         </div>`;
@@ -508,9 +755,17 @@
     `;
   }
 
-  function buildExamList(myExams) {
+  function buildExamList(myExams, conflicts) {
     const container = document.getElementById('personal-exam-list');
     container.innerHTML = '';
+
+    // Build a set of conflict slots for quick lookup
+    const conflictSlots = new Set();
+    if (conflicts) {
+      conflicts.filter(c => c.type === 'same-session').forEach(c => {
+        conflictSlots.add(`${c.date}|${c.session}`);
+      });
+    }
 
     const byDate = {};
     myExams.forEach(e => {
@@ -529,12 +784,14 @@
       exams.sort((a, b) => (a.session === 'morning' ? -1 : 1));
       exams.forEach(exam => {
         const color = SUBJECT_GROUPS[exam.group]?.color || '#888';
+        const isConflict = conflictSlots.has(`${exam.date}|${exam.session}`);
+        const elDotClass = exam.group === 'ap' ? 'el-dot dot-ap' : 'el-dot';
         const item = document.createElement('div');
-        item.className = 'exam-list-item';
+        item.className = 'exam-list-item' + (isConflict ? ' conflict-item' : '');
         item.innerHTML = `
-          <span class="el-dot" style="background:${sanitize(color)}"></span>
+          <span class="${elDotClass}" style="background:${sanitize(color)}"></span>
           <span class="el-session">${exam.session === 'morning' ? 'AM' : 'PM'}</span>
-          <span class="el-name">${sanitize(exam.name)}</span>
+          <span class="el-name">${sanitize(exam.name)}${isConflict ? ' <span style="color:#ff6b6b;font-size:0.75rem;">⚠ conflict</span>' : ''}</span>
           <span class="el-dur">${formatDuration(exam.duration)}</span>
         `;
         group.appendChild(item);
@@ -573,7 +830,7 @@
 
     let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}">`;
     svg += `<rect width="100%" height="100%" fill="#000"/>`;
-    svg += `<text x="${svgWidth / 2}" y="${padding + 24}" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="20" font-weight="700" fill="#fff">IB May 2026 — My Exam Schedule</text>`;
+    svg += `<text x="${svgWidth / 2}" y="${padding + 24}" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="20" font-weight="700" fill="#fff">May 2026 — My Exam Schedule</text>`;
 
     let y = titleHeight + padding;
     dates.forEach(dateStr => {
@@ -584,7 +841,12 @@
 
       byDate[dateStr].forEach(exam => {
         const color = SUBJECT_GROUPS[exam.group]?.color || '#888';
-        svg += `<circle cx="${padding + 8}" cy="${y + 10}" r="4" fill="${color}"/>`;
+        const isAP = exam.group === 'ap';
+        if (isAP) {
+          svg += `<polygon points="${padding + 8},${y + 4} ${padding + 4},${y + 14} ${padding + 12},${y + 14}" fill="${color}"/>`;
+        } else {
+          svg += `<circle cx="${padding + 8}" cy="${y + 10}" r="4" fill="${color}"/>`;
+        }
         svg += `<text x="${padding + 20}" y="${y + 14}" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" fill="#ccc">${escapeXml(exam.name)}</text>`;
         svg += `<text x="${svgWidth - padding}" y="${y + 14}" text-anchor="end" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#666">${exam.session === 'morning' ? 'AM' : 'PM'} · ${formatDuration(exam.duration)}</text>`;
         y += dayHeight;
@@ -594,7 +856,7 @@
 
     svg += `</svg>`;
 
-    downloadFile('ib-exam-schedule.svg', svg, 'image/svg+xml');
+    downloadFile('exam-schedule.svg', svg, 'image/svg+xml');
   };
 
   // ICS Export (Google Calendar & Outlook)
@@ -602,7 +864,7 @@
     const myExams = getExamsForCourses(selectedCourseIds);
     myExams.sort((a, b) => a.date.localeCompare(b.date));
 
-    let ics = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//IB Examiner//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\n';
+    let ics = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Examiner//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\n';
 
     myExams.forEach(exam => {
       const dateClean = exam.date.replace(/-/g, '');
@@ -612,7 +874,7 @@
       const endDate = new Date(startDate.getTime() + exam.duration * 60000);
       const endHour = String(endDate.getHours()).padStart(2, '0') + String(endDate.getMinutes()).padStart(2, '0') + '00';
 
-      const uid = `ib-exam-${dateClean}-${startHour}-${hashCode(exam.name)}@ibexaminer`;
+      const uid = `exam-${dateClean}-${startHour}-${hashCode(exam.name)}@examiner`;
 
       ics += 'BEGIN:VEVENT\r\n';
       ics += `DTSTART:${dateClean}T${startHour}\r\n`;
@@ -625,7 +887,7 @@
 
     ics += 'END:VCALENDAR\r\n';
 
-    const filename = type === 'google' ? 'ib-exams-google.ics' : 'ib-exams-outlook.ics';
+    const filename = type === 'google' ? 'exams-google.ics' : 'exams-outlook.ics';
     downloadFile(filename, ics, 'text/calendar');
   };
 
@@ -642,7 +904,23 @@
       csv += `"${dateFormatted}","${day}","${exam.session}","${exam.name.replace(/"/g, '""')}",${exam.duration},"${formatDuration(exam.duration)}"\n`;
     });
 
-    downloadFile('ib-exam-schedule.csv', csv, 'text/csv');
+    downloadFile('exam-schedule.csv', csv, 'text/csv');
+  };
+
+  // Share Link
+  window.copyShareLink = function () {
+    const params = new URLSearchParams();
+    params.set('courses', selectedCourseIds.join(','));
+    const url = window.location.origin + window.location.pathname + '?' + params.toString();
+    navigator.clipboard.writeText(url).then(() => {
+      const btn = document.getElementById('btn-copy-link');
+      const orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = orig; }, 2000);
+    }).catch(() => {
+      // Clipboard API may be unavailable
+      prompt('Copy this link:', url);
+    });
   };
 
   // ===== Utilities =====

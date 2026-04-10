@@ -1,5 +1,5 @@
-// IB May 2026 Examination Schedule Data
-// Transcribed from the official IB Diploma Programme / Career-related Programme schedule (Final Version)
+// May 2026 Examination Schedule Data
+// Transcribed from official IB Diploma Programme / Career-related Programme and College Board AP schedules
 
 const SUBJECT_GROUPS = {
   language: { label: 'Studies in Language & Literature / Language Acquisition', color: '#4A9EFF' },
@@ -7,7 +7,8 @@ const SUBJECT_GROUPS = {
   sciences: { label: 'Sciences', color: '#51CF66' },
   mathematics: { label: 'Mathematics', color: '#FFD43B' },
   arts: { label: 'The Arts', color: '#CC5DE8' },
-  interdisciplinary: { label: 'Interdisciplinary', color: '#FF922B' }
+  interdisciplinary: { label: 'Interdisciplinary', color: '#FF922B' },
+  ap: { label: 'AP Exams', color: '#00B4D8' }
 };
 
 // All selectable courses grouped for the dropdown
@@ -95,6 +96,46 @@ const COURSES = [
   // Interdisciplinary
   { id: 'sbs_sl', name: 'School-based Syllabus SL', group: 'interdisciplinary', level: 'SL' },
   { id: 'lang_culture_sl', name: 'Language & Culture SL', group: 'interdisciplinary', level: 'SL' },
+
+  // AP Exams (College Board 2026)
+  { id: 'ap_biology', name: 'AP Biology', group: 'ap', level: 'AP', category: 'Sciences' },
+  { id: 'ap_latin', name: 'AP Latin', group: 'ap', level: 'AP', category: 'World Languages' },
+  { id: 'ap_european_history', name: 'AP European History', group: 'ap', level: 'AP', category: 'History & Social Sciences' },
+  { id: 'ap_microeconomics', name: 'AP Microeconomics', group: 'ap', level: 'AP', category: 'History & Social Sciences' },
+  { id: 'ap_chemistry', name: 'AP Chemistry', group: 'ap', level: 'AP', category: 'Sciences' },
+  { id: 'ap_human_geography', name: 'AP Human Geography', group: 'ap', level: 'AP', category: 'History & Social Sciences' },
+  { id: 'ap_us_gov', name: 'AP United States Government and Politics', group: 'ap', level: 'AP', category: 'History & Social Sciences' },
+  { id: 'ap_english_lit', name: 'AP English Literature and Composition', group: 'ap', level: 'AP', category: 'English' },
+  { id: 'ap_comp_gov', name: 'AP Comparative Government and Politics', group: 'ap', level: 'AP', category: 'History & Social Sciences' },
+  { id: 'ap_physics_1', name: 'AP Physics 1: Algebra-Based', group: 'ap', level: 'AP', category: 'Sciences' },
+  { id: 'ap_physics_2', name: 'AP Physics 2: Algebra-Based', group: 'ap', level: 'AP', category: 'Sciences' },
+  { id: 'ap_world_history', name: 'AP World History: Modern', group: 'ap', level: 'AP', category: 'History & Social Sciences' },
+  { id: 'ap_african_american_studies', name: 'AP African American Studies', group: 'ap', level: 'AP', category: 'History & Social Sciences' },
+  { id: 'ap_statistics', name: 'AP Statistics', group: 'ap', level: 'AP', category: 'Math' },
+  { id: 'ap_italian', name: 'AP Italian Language and Culture', group: 'ap', level: 'AP', category: 'World Languages' },
+  { id: 'ap_us_history', name: 'AP United States History', group: 'ap', level: 'AP', category: 'History & Social Sciences' },
+  { id: 'ap_chinese', name: 'AP Chinese Language and Culture', group: 'ap', level: 'AP', category: 'World Languages' },
+  { id: 'ap_macroeconomics', name: 'AP Macroeconomics', group: 'ap', level: 'AP', category: 'History & Social Sciences' },
+  { id: 'ap_art_design', name: 'AP Art and Design', group: 'ap', level: 'AP', category: 'Arts' },
+  { id: 'ap_calculus_ab', name: 'AP Calculus AB', group: 'ap', level: 'AP', category: 'Math' },
+  { id: 'ap_calculus_bc', name: 'AP Calculus BC', group: 'ap', level: 'AP', category: 'Math' },
+  { id: 'ap_music_theory', name: 'AP Music Theory', group: 'ap', level: 'AP', category: 'Arts' },
+  { id: 'ap_seminar', name: 'AP Seminar', group: 'ap', level: 'AP', category: 'Research' },
+  { id: 'ap_french', name: 'AP French Language and Culture', group: 'ap', level: 'AP', category: 'World Languages' },
+  { id: 'ap_precalculus', name: 'AP Precalculus', group: 'ap', level: 'AP', category: 'Math' },
+  { id: 'ap_japanese', name: 'AP Japanese Language and Culture', group: 'ap', level: 'AP', category: 'World Languages' },
+  { id: 'ap_psychology', name: 'AP Psychology', group: 'ap', level: 'AP', category: 'History & Social Sciences' },
+  { id: 'ap_english_lang', name: 'AP English Language and Composition', group: 'ap', level: 'AP', category: 'English' },
+  { id: 'ap_german', name: 'AP German Language and Culture', group: 'ap', level: 'AP', category: 'World Languages' },
+  { id: 'ap_physics_c_mech', name: 'AP Physics C: Mechanics', group: 'ap', level: 'AP', category: 'Sciences' },
+  { id: 'ap_spanish_lit', name: 'AP Spanish Literature and Culture', group: 'ap', level: 'AP', category: 'World Languages' },
+  { id: 'ap_art_history', name: 'AP Art History', group: 'ap', level: 'AP', category: 'Arts' },
+  { id: 'ap_spanish_lang', name: 'AP Spanish Language and Culture', group: 'ap', level: 'AP', category: 'World Languages' },
+  { id: 'ap_csp', name: 'AP Computer Science Principles', group: 'ap', level: 'AP', category: 'Sciences' },
+  { id: 'ap_physics_c_em', name: 'AP Physics C: Electricity and Magnetism', group: 'ap', level: 'AP', category: 'Sciences' },
+  { id: 'ap_environmental_science', name: 'AP Environmental Science', group: 'ap', level: 'AP', category: 'Sciences' },
+  { id: 'ap_csa', name: 'AP Computer Science A', group: 'ap', level: 'AP', category: 'Sciences' },
+  { id: 'ap_research', name: 'AP Research', group: 'ap', level: 'AP', category: 'Research' },
 ];
 
 // All exams - each entry maps to one or more course IDs
@@ -285,6 +326,63 @@ const EXAMS = [
   { date: '2026-05-20', session: 'morning', name: 'French ab initio SL Paper 2 – Listening Comprehension', duration: 45, courseIds: ['french_ab_initio_sl'], group: 'language' },
   { date: '2026-05-20', session: 'afternoon', name: 'Mathematics: Analysis & Approaches HL Paper 3', duration: 75, courseIds: ['math_aa_hl'], group: 'mathematics' },
   { date: '2026-05-20', session: 'afternoon', name: 'Mathematics: Applications & Interpretation HL Paper 3', duration: 75, courseIds: ['math_ai_hl'], group: 'mathematics' },
+
+  // ===== AP Exams — May 2026 (College Board) =====
+  // Week 1
+  // Monday May 4
+  { date: '2026-05-04', session: 'morning', name: 'AP Biology', duration: 195, courseIds: ['ap_biology'], group: 'ap' },
+  { date: '2026-05-04', session: 'morning', name: 'AP Latin', duration: 195, courseIds: ['ap_latin'], group: 'ap' },
+  { date: '2026-05-04', session: 'afternoon', name: 'AP European History', duration: 195, courseIds: ['ap_european_history'], group: 'ap' },
+  { date: '2026-05-04', session: 'afternoon', name: 'AP Microeconomics', duration: 130, courseIds: ['ap_microeconomics'], group: 'ap' },
+  // Tuesday May 5
+  { date: '2026-05-05', session: 'morning', name: 'AP Chemistry', duration: 195, courseIds: ['ap_chemistry'], group: 'ap' },
+  { date: '2026-05-05', session: 'morning', name: 'AP Human Geography', duration: 135, courseIds: ['ap_human_geography'], group: 'ap' },
+  { date: '2026-05-05', session: 'afternoon', name: 'AP United States Government and Politics', duration: 180, courseIds: ['ap_us_gov'], group: 'ap' },
+  // Wednesday May 6
+  { date: '2026-05-06', session: 'morning', name: 'AP English Literature and Composition', duration: 180, courseIds: ['ap_english_lit'], group: 'ap' },
+  { date: '2026-05-06', session: 'afternoon', name: 'AP Comparative Government and Politics', duration: 180, courseIds: ['ap_comp_gov'], group: 'ap' },
+  { date: '2026-05-06', session: 'afternoon', name: 'AP Physics 1: Algebra-Based', duration: 180, courseIds: ['ap_physics_1'], group: 'ap' },
+  // Thursday May 7
+  { date: '2026-05-07', session: 'morning', name: 'AP Physics 2: Algebra-Based', duration: 180, courseIds: ['ap_physics_2'], group: 'ap' },
+  { date: '2026-05-07', session: 'morning', name: 'AP World History: Modern', duration: 195, courseIds: ['ap_world_history'], group: 'ap' },
+  { date: '2026-05-07', session: 'afternoon', name: 'AP African American Studies', duration: 180, courseIds: ['ap_african_american_studies'], group: 'ap' },
+  { date: '2026-05-07', session: 'afternoon', name: 'AP Statistics', duration: 180, courseIds: ['ap_statistics'], group: 'ap' },
+  // Friday May 8
+  { date: '2026-05-08', session: 'morning', name: 'AP Italian Language and Culture', duration: 195, courseIds: ['ap_italian'], group: 'ap' },
+  { date: '2026-05-08', session: 'morning', name: 'AP United States History', duration: 195, courseIds: ['ap_us_history'], group: 'ap' },
+  { date: '2026-05-08', session: 'afternoon', name: 'AP Chinese Language and Culture', duration: 195, courseIds: ['ap_chinese'], group: 'ap' },
+  { date: '2026-05-08', session: 'afternoon', name: 'AP Macroeconomics', duration: 130, courseIds: ['ap_macroeconomics'], group: 'ap' },
+  { date: '2026-05-08', session: 'afternoon', name: 'AP Art and Design (Portfolio Deadline)', duration: 0, courseIds: ['ap_art_design'], group: 'ap' },
+
+  // Week 2
+  // Monday May 11
+  { date: '2026-05-11', session: 'morning', name: 'AP Calculus AB', duration: 195, courseIds: ['ap_calculus_ab'], group: 'ap' },
+  { date: '2026-05-11', session: 'morning', name: 'AP Calculus BC', duration: 195, courseIds: ['ap_calculus_bc'], group: 'ap' },
+  { date: '2026-05-11', session: 'afternoon', name: 'AP Music Theory', duration: 180, courseIds: ['ap_music_theory'], group: 'ap' },
+  { date: '2026-05-11', session: 'afternoon', name: 'AP Seminar', duration: 180, courseIds: ['ap_seminar'], group: 'ap' },
+  // Tuesday May 12
+  { date: '2026-05-12', session: 'morning', name: 'AP French Language and Culture', duration: 195, courseIds: ['ap_french'], group: 'ap' },
+  { date: '2026-05-12', session: 'morning', name: 'AP Precalculus', duration: 120, courseIds: ['ap_precalculus'], group: 'ap' },
+  { date: '2026-05-12', session: 'afternoon', name: 'AP Japanese Language and Culture', duration: 195, courseIds: ['ap_japanese'], group: 'ap' },
+  { date: '2026-05-12', session: 'afternoon', name: 'AP Psychology', duration: 120, courseIds: ['ap_psychology'], group: 'ap' },
+  // Wednesday May 13
+  { date: '2026-05-13', session: 'morning', name: 'AP English Language and Composition', duration: 135, courseIds: ['ap_english_lang'], group: 'ap' },
+  { date: '2026-05-13', session: 'morning', name: 'AP German Language and Culture', duration: 195, courseIds: ['ap_german'], group: 'ap' },
+  { date: '2026-05-13', session: 'afternoon', name: 'AP Physics C: Mechanics', duration: 90, courseIds: ['ap_physics_c_mech'], group: 'ap' },
+  { date: '2026-05-13', session: 'afternoon', name: 'AP Spanish Literature and Culture', duration: 180, courseIds: ['ap_spanish_lit'], group: 'ap' },
+  // Thursday May 14
+  { date: '2026-05-14', session: 'morning', name: 'AP Art History', duration: 180, courseIds: ['ap_art_history'], group: 'ap' },
+  { date: '2026-05-14', session: 'morning', name: 'AP Spanish Language and Culture', duration: 195, courseIds: ['ap_spanish_lang'], group: 'ap' },
+  { date: '2026-05-14', session: 'afternoon', name: 'AP Computer Science Principles', duration: 120, courseIds: ['ap_csp'], group: 'ap' },
+  { date: '2026-05-14', session: 'afternoon', name: 'AP Physics C: Electricity and Magnetism', duration: 90, courseIds: ['ap_physics_c_em'], group: 'ap' },
+  // Friday May 15
+  { date: '2026-05-15', session: 'morning', name: 'AP Environmental Science', duration: 160, courseIds: ['ap_environmental_science'], group: 'ap' },
+  { date: '2026-05-15', session: 'afternoon', name: 'AP Computer Science A', duration: 180, courseIds: ['ap_csa'], group: 'ap' },
+
+  // AP Seminar & Research submission deadlines
+  { date: '2026-04-30', session: 'afternoon', name: 'AP Seminar — Performance Task Submission Deadline', duration: 0, courseIds: ['ap_seminar'], group: 'ap' },
+  { date: '2026-04-30', session: 'afternoon', name: 'AP Research — Performance Task Submission Deadline', duration: 0, courseIds: ['ap_research'], group: 'ap' },
+  { date: '2026-04-30', session: 'afternoon', name: 'AP CSP — Create Task Submission Deadline', duration: 0, courseIds: ['ap_csp'], group: 'ap' },
 ];
 
 // Helper to format duration in minutes to a readable string
