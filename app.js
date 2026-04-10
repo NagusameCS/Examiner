@@ -9,6 +9,31 @@
   let currentView = 'landing';
   const STORAGE_KEY = 'examiner_courses';
   const FIRST_VISIT_KEY = 'examiner_visited';
+  const STUDY_RANK_KEY = 'examiner_study_ranks';
+  const STUDY_HOURS_KEY = 'examiner_study_hours';
+  const STUDY_CUSTOM_KEY = 'examiner_study_custom';
+  let studyPlanData = null;
+
+  // ===== Cookie Helpers =====
+  function setCookie(name, value, days) {
+    const d = new Date();
+    d.setTime(d.getTime() + days * 24 * 60 * 60 * 1000);
+    document.cookie = name + '=' + encodeURIComponent(value) + ';expires=' + d.toUTCString() + ';path=/;SameSite=Lax';
+  }
+
+  function getCookie(name) {
+    const nameEq = name + '=';
+    const parts = document.cookie.split(';');
+    for (let i = 0; i < parts.length; i++) {
+      const c = parts[i].trim();
+      if (c.indexOf(nameEq) === 0) return decodeURIComponent(c.substring(nameEq.length));
+    }
+    return null;
+  }
+
+  function deleteCookie(name) {
+    document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;';
+  }
 
   // ===== Init =====
   document.addEventListener('DOMContentLoaded', () => {
@@ -21,8 +46,7 @@
     const visited = localStorage.getItem(FIRST_VISIT_KEY);
     if (visited) {
       // Returning user — check if they have saved courses
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved && JSON.parse(saved).length > 0) {
+      if (selectedCourseIds.length > 0) {
         showView('my');
         generatePersonalCalendar();
       } else {
@@ -63,6 +87,7 @@
         const hash = a.getAttribute('href');
         if (hash === '#/calendar') showView('calendar');
         else if (hash === '#/select') showView('select');
+        else if (hash === '#/study') showView('study');
       });
     });
 
@@ -78,6 +103,13 @@
     document.querySelector('.nav-brand').addEventListener('click', (e) => {
       e.preventDefault();
       showView('landing');
+    });
+
+    // Study plan
+    document.getElementById('generate-study-btn').addEventListener('click', generateStudyPlan);
+    document.getElementById('study-select-link').addEventListener('click', (e) => {
+      e.preventDefault();
+      showView('select');
     });
   }
 
@@ -99,6 +131,11 @@
     // Build calendar when showing full calendar
     if (viewId === 'calendar') {
       buildFullCalendar();
+    }
+
+    // Init study view when showing it
+    if (viewId === 'study') {
+      initStudyView();
     }
   };
 
@@ -626,12 +663,20 @@
   }
 
   function saveCourses() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(selectedCourseIds));
+    setCookie(STORAGE_KEY, JSON.stringify(selectedCourseIds), 365);
   }
 
   function loadSavedCourses() {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      // Try cookie first, fall back to localStorage for migration
+      let saved = getCookie(STORAGE_KEY);
+      if (!saved) {
+        saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          setCookie(STORAGE_KEY, saved, 365);
+          localStorage.removeItem(STORAGE_KEY);
+        }
+      }
       if (saved) {
         selectedCourseIds = JSON.parse(saved);
         renderSelectedCourses();
@@ -1072,6 +1117,315 @@
       prompt('Copy this link:', url);
     });
   };
+
+  // ===== Study Planner =====
+
+  function initStudyView() {
+    const noCourses = document.getElementById('study-no-courses');
+    const config = document.getElementById('study-config');
+    const result = document.getElementById('study-result');
+
+    if (selectedCourseIds.length === 0) {
+      noCourses.style.display = 'block';
+      config.style.display = 'none';
+      result.style.display = 'none';
+      return;
+    }
+
+    noCourses.style.display = 'none';
+    config.style.display = 'block';
+
+    let ranks = null;
+    try {
+      const saved = getCookie(STUDY_RANK_KEY);
+      if (saved) ranks = JSON.parse(saved);
+    } catch (e) { ranks = null; }
+
+    // Validate saved ranks match current courses
+    if (!ranks || !selectedCourseIds.every(id => ranks.includes(id)) || !ranks.every(id => selectedCourseIds.includes(id))) {
+      ranks = [...selectedCourseIds];
+    }
+
+    const savedHours = getCookie(STUDY_HOURS_KEY);
+    if (savedHours) document.getElementById('daily-hours-input').value = savedHours;
+
+    buildRankingList(ranks);
+  }
+
+  function buildRankingList(ranks) {
+    const list = document.getElementById('ranking-list');
+    list.innerHTML = '';
+
+    ranks.forEach((courseId, i) => {
+      const course = getCourse(courseId);
+      if (!course) return;
+      const color = SUBJECT_GROUPS[course.group]?.color || '#888';
+      const dotClass = course.group === 'ap' ? 'rank-dot dot-ap' : 'rank-dot';
+
+      const item = document.createElement('div');
+      item.className = 'rank-item';
+      item.dataset.id = courseId;
+
+      const num = document.createElement('span');
+      num.className = 'rank-number';
+      num.textContent = i + 1;
+
+      const arrows = document.createElement('span');
+      arrows.className = 'rank-arrows';
+
+      const upBtn = document.createElement('button');
+      upBtn.className = 'rank-arrow';
+      upBtn.textContent = '\u25B2';
+      upBtn.title = 'Move up (harder)';
+      upBtn.disabled = i === 0;
+      upBtn.addEventListener('click', () => moveRankItem(courseId, -1));
+
+      const downBtn = document.createElement('button');
+      downBtn.className = 'rank-arrow';
+      downBtn.textContent = '\u25BC';
+      downBtn.title = 'Move down (easier)';
+      downBtn.disabled = i === ranks.length - 1;
+      downBtn.addEventListener('click', () => moveRankItem(courseId, 1));
+
+      arrows.appendChild(upBtn);
+      arrows.appendChild(downBtn);
+
+      const dot = document.createElement('span');
+      dot.className = dotClass;
+      dot.style.background = color;
+
+      const name = document.createElement('span');
+      name.className = 'rank-name';
+      name.textContent = course.name;
+
+      const diff = document.createElement('span');
+      diff.className = 'rank-difficulty';
+      diff.textContent = getDiffLabel(i, ranks.length);
+
+      item.appendChild(num);
+      item.appendChild(arrows);
+      item.appendChild(dot);
+      item.appendChild(name);
+      item.appendChild(diff);
+      list.appendChild(item);
+    });
+  }
+
+  function getDiffLabel(index, total) {
+    if (total <= 1) return '';
+    const r = index / (total - 1);
+    if (r <= 0.2) return 'Hardest';
+    if (r <= 0.4) return 'Hard';
+    if (r <= 0.6) return 'Medium';
+    if (r <= 0.8) return 'Easier';
+    return 'Easiest';
+  }
+
+  function moveRankItem(courseId, direction) {
+    const items = Array.from(document.querySelectorAll('#ranking-list .rank-item'));
+    const ranks = items.map(el => el.dataset.id);
+    const idx = ranks.indexOf(courseId);
+    if (idx < 0) return;
+    const newIdx = idx + direction;
+    if (newIdx < 0 || newIdx >= ranks.length) return;
+    [ranks[idx], ranks[newIdx]] = [ranks[newIdx], ranks[idx]];
+    setCookie(STUDY_RANK_KEY, JSON.stringify(ranks), 365);
+    buildRankingList(ranks);
+  }
+
+  function getCurrentRanks() {
+    const items = document.querySelectorAll('#ranking-list .rank-item');
+    return Array.from(items).map(el => el.dataset.id);
+  }
+
+  function generateStudyPlan() {
+    const ranks = getCurrentRanks();
+    if (ranks.length === 0) return;
+
+    const dailyHours = parseFloat(document.getElementById('daily-hours-input').value) || 6;
+    setCookie(STUDY_HOURS_KEY, String(dailyHours), 365);
+    setCookie(STUDY_RANK_KEY, JSON.stringify(ranks), 365);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const N = ranks.length;
+    const courseData = ranks.map((courseId, rankIndex) => {
+      const course = getCourse(courseId);
+      const exams = EXAMS.filter(e => e.courseIds.includes(courseId));
+      const sorted = [...exams].sort((a, b) => a.date.localeCompare(b.date));
+      const firstExam = sorted[0];
+      const examDate = firstExam ? new Date(firstExam.date + 'T00:00:00') : new Date('2026-05-20T00:00:00');
+      const daysUntil = Math.max(1, Math.ceil((examDate - today) / 86400000));
+      const diffWeight = N - rankIndex; // index 0 = hardest = highest weight
+      return { courseId, course, examDate, daysUntil, rankIndex, diffWeight, totalHours: 0 };
+    });
+
+    // Load custom hour overrides
+    let customHours = null;
+    try {
+      const saved = getCookie(STUDY_CUSTOM_KEY);
+      if (saved) customHours = JSON.parse(saved);
+    } catch (e) { customHours = null; }
+
+    // Compute total hours per subject
+    const maxDays = Math.max(...courseData.map(c => c.daysUntil));
+
+    if (customHours && Object.keys(customHours).length > 0) {
+      courseData.forEach(c => {
+        c.totalHours = customHours[c.courseId] !== undefined ? customHours[c.courseId] : 0;
+      });
+    } else {
+      // Score = diffWeight * sqrt(daysUntil) — harder subjects + more prep time = more hours
+      courseData.forEach(c => { c.score = c.diffWeight * Math.sqrt(c.daysUntil); });
+      const totalScore = courseData.reduce((s, c) => s + c.score, 0);
+      const totalAvail = maxDays * dailyHours;
+      courseData.forEach(c => {
+        c.totalHours = Math.round((c.score / totalScore) * totalAvail * 2) / 2;
+      });
+    }
+
+    // Generate daily schedule
+    const schedule = [];
+    for (let d = 0; d < maxDays; d++) {
+      const date = new Date(today);
+      date.setDate(date.getDate() + d);
+      const dateStr = formatDate(date);
+
+      const active = courseData.filter(c => Math.ceil((c.examDate - date) / 86400000) > 0);
+      if (active.length === 0) continue;
+
+      // Weight = totalHours / sqrt(daysLeft) — subjects with more total hours and closer exams get priority
+      const weights = active.map(c => {
+        const daysLeft = Math.max(1, Math.ceil((c.examDate - date) / 86400000));
+        return { courseId: c.courseId, weight: Math.max(0.01, c.totalHours) / Math.sqrt(daysLeft) };
+      });
+
+      const totalWeight = weights.reduce((s, w) => s + w.weight, 0);
+      if (totalWeight === 0) continue;
+
+      const allocations = weights.map(w => ({
+        courseId: w.courseId,
+        hours: Math.round((w.weight / totalWeight) * dailyHours * 4) / 4
+      })).filter(a => a.hours >= 0.25);
+
+      // Clamp total to daily limit
+      const allocTotal = allocations.reduce((s, a) => s + a.hours, 0);
+      if (allocTotal > dailyHours + 0.25) {
+        const scale = dailyHours / allocTotal;
+        allocations.forEach(a => {
+          a.hours = Math.max(0.25, Math.round(a.hours * scale * 4) / 4);
+        });
+      }
+
+      if (allocations.length > 0) schedule.push({ date: dateStr, allocations });
+    }
+
+    studyPlanData = { courseData, schedule, dailyHours };
+    renderStudyPlan();
+  }
+
+  function renderStudyPlan() {
+    if (!studyPlanData) return;
+    const { courseData, schedule, dailyHours } = studyPlanData;
+
+    const resultEl = document.getElementById('study-result');
+    resultEl.style.display = 'block';
+
+    // --- Summary: hours per subject with editable inputs ---
+    const summaryEl = document.getElementById('study-summary');
+    let sHtml = '<h3>Study Hour Allocation</h3>';
+    sHtml += '<p class="selector-hint">Adjust total hours per subject, then regenerate.</p>';
+    sHtml += '<div class="study-alloc-list">';
+
+    courseData.forEach(c => {
+      const color = SUBJECT_GROUPS[c.course.group]?.color || '#888';
+      const dotClass = c.course.group === 'ap' ? 'sa-dot dot-ap' : 'sa-dot';
+      sHtml += '<div class="study-alloc-row">';
+      sHtml += '<span class="' + dotClass + '" style="background:' + sanitize(color) + '"></span>';
+      sHtml += '<span class="sa-name">' + sanitize(c.course.name) + '</span>';
+      sHtml += '<span class="sa-meta">' + c.daysUntil + 'd left</span>';
+      sHtml += '<input type="number" class="sa-input" data-course="' + sanitize(c.courseId) + '" value="' + c.totalHours + '" min="0" max="999" step="0.5">';
+      sHtml += '<span class="sa-unit">hrs</span>';
+      sHtml += '</div>';
+    });
+
+    sHtml += '</div>';
+    sHtml += '<button class="btn btn-secondary btn-sm" id="regenerate-study-btn">Regenerate with Custom Hours</button> ';
+    sHtml += '<button class="btn btn-secondary btn-sm" id="reset-study-btn">Reset to Auto</button>';
+    summaryEl.innerHTML = sHtml;
+
+    document.getElementById('regenerate-study-btn').addEventListener('click', () => {
+      const inputs = summaryEl.querySelectorAll('.sa-input');
+      const custom = {};
+      inputs.forEach(inp => { custom[inp.dataset.course] = parseFloat(inp.value) || 0; });
+      setCookie(STUDY_CUSTOM_KEY, JSON.stringify(custom), 365);
+      generateStudyPlan();
+    });
+
+    document.getElementById('reset-study-btn').addEventListener('click', () => {
+      deleteCookie(STUDY_CUSTOM_KEY);
+      generateStudyPlan();
+    });
+
+    // --- Daily schedule grouped by week ---
+    const scheduleEl = document.getElementById('study-schedule');
+    let dHtml = '<h3>Daily Study Plan</h3>';
+
+    // Group by week (Monday start)
+    const weeks = {};
+    schedule.forEach(day => {
+      const d = new Date(day.date + 'T00:00:00');
+      const dow = (d.getDay() + 6) % 7; // Mon=0
+      const weekStart = new Date(d);
+      weekStart.setDate(weekStart.getDate() - dow);
+      const weekKey = formatDate(weekStart);
+      if (!weeks[weekKey]) weeks[weekKey] = [];
+      weeks[weekKey].push(day);
+    });
+
+    for (const [weekStart, days] of Object.entries(weeks)) {
+      const ws = new Date(weekStart + 'T00:00:00');
+      const we = new Date(ws);
+      we.setDate(we.getDate() + 6);
+      const weekLabel = ws.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
+        ' \u2013 ' + we.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+      dHtml += '<div class="study-week">';
+      dHtml += '<div class="study-week-header">' + weekLabel + '</div>';
+
+      days.forEach(day => {
+        const dateObj = new Date(day.date + 'T00:00:00');
+        const dayLabel = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        const totalDayHours = day.allocations.reduce((s, a) => s + a.hours, 0);
+
+        dHtml += '<div class="study-day">';
+        dHtml += '<div class="study-day-header"><span class="study-day-date">' + dayLabel + '</span><span class="study-day-total">' + totalDayHours + 'h</span></div>';
+
+        day.allocations.forEach(a => {
+          const course = getCourse(a.courseId);
+          if (!course) return;
+          const color = SUBJECT_GROUPS[course.group]?.color || '#888';
+          const pct = Math.min(100, (a.hours / dailyHours) * 100);
+          const dotClass = course.group === 'ap' ? 'sd-dot dot-ap' : 'sd-dot';
+
+          dHtml += '<div class="study-subject-row">';
+          dHtml += '<span class="' + dotClass + '" style="background:' + sanitize(color) + '"></span>';
+          dHtml += '<span class="sd-name">' + sanitize(course.name) + '</span>';
+          dHtml += '<span class="sd-hours">' + a.hours + 'h</span>';
+          dHtml += '<div class="sd-bar-track"><div class="sd-bar" style="width:' + pct + '%;background:' + sanitize(color) + '"></div></div>';
+          dHtml += '</div>';
+        });
+
+        dHtml += '</div>';
+      });
+
+      dHtml += '</div>';
+    }
+
+    scheduleEl.innerHTML = dHtml;
+    resultEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
   // ===== Utilities =====
 

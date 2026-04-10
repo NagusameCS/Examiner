@@ -15,6 +15,7 @@
       <ul class="nav-links" id="nav-links">
         <li><a href="#/calendar" data-view="calendar">Exam Calendar</a></li>
         <li><a href="#/select" data-view="select">My Calendar</a></li>
+        <li><a href="#/study" data-view="study">Study Plan</a></li>
       </ul>
     </div>
   </nav>
@@ -27,6 +28,7 @@
       <div class="landing-actions">
         <a href="#/calendar" class="btn btn-primary">View Exam Calendar</a>
         <a href="#/select" class="btn btn-secondary">Build My Calendar</a>
+        <a href="#/study" class="btn btn-secondary">Study Planner</a>
       </div>
       <p class="landing-credit">Built by <a href="https://nagusamecs.github.io" target="_blank">NagusameCS</a> — free &amp; open source</p>
     </div>
@@ -89,6 +91,34 @@
         <div class="edit-subjects-bar">
           <a href="#/select" class="btn btn-secondary btn-sm">Edit Subjects</a>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="study" class="view">
+    <div class="container">
+      <div class="view-header">
+        <h2 class="section-title"><span>Study Planner</span></h2>
+      </div>
+      <div id="study-no-courses" class="study-empty" style="display:none;">
+        <p>Select your subjects first to build a study plan.</p>
+        <a href="#/select" class="btn btn-secondary" id="study-select-link">Select Subjects</a>
+      </div>
+      <div id="study-config" class="study-config">
+        <h3>Rank Your Subjects by Difficulty</h3>
+        <p class="selector-hint">Reorder your subjects — hardest at the top, easiest at the bottom.</p>
+        <div id="ranking-list" class="ranking-list"></div>
+        <div class="study-settings">
+          <label class="study-hours-label">
+            Daily study hours
+            <input type="number" id="daily-hours-input" value="6" min="1" max="16" step="0.5">
+          </label>
+        </div>
+        <button class="btn btn-primary" id="generate-study-btn">Generate Study Plan</button>
+      </div>
+      <div id="study-result" style="display:none;">
+        <div id="study-summary" class="study-summary"></div>
+        <div id="study-schedule" class="study-schedule"></div>
       </div>
     </div>
   </section>
