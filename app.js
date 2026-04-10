@@ -1,0 +1,693 @@
+// ===== IB Examiner — Main Application =====
+// All computation runs client-side. No server required.
+
+(function () {
+  'use strict';
+
+  // ===== State =====
+  let selectedCourseIds = [];
+  let currentView = 'landing';
+  const STORAGE_KEY = 'ib_examiner_courses';
+  const FIRST_VISIT_KEY = 'ib_examiner_visited';
+
+  // ===== Init =====
+  document.addEventListener('DOMContentLoaded', () => {
+    buildLegend();
+    buildCourseDropdown();
+    loadSavedCourses();
+    setupSearch();
+
+    const visited = localStorage.getItem(FIRST_VISIT_KEY);
+    if (visited) {
+      // Returning user — check if they have saved courses
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved && JSON.parse(saved).length > 0) {
+        showView('personal');
+        generatePersonalCalendar();
+      } else {
+        showView('landing');
+      }
+    } else {
+      showView('landing');
+    }
+    localStorage.setItem(FIRST_VISIT_KEY, '1');
+  });
+
+  // ===== View Management =====
+  window.showView = function (viewId) {
+    currentView = viewId;
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    const el = document.getElementById(viewId);
+    if (el) el.classList.add('active');
+
+    // Update nav active state
+    document.querySelectorAll('.nav-links a').forEach(a => {
+      a.classList.toggle('active', a.dataset.view === viewId);
+    });
+
+    // Show nav links when not on landing
+    document.getElementById('nav-links').style.display = viewId === 'landing' ? 'none' : '';
+
+    // Build calendar when showing full calendar
+    if (viewId === 'full-calendar') {
+      buildFullCalendar();
+    }
+  };
+
+  window.showLanding = function () {
+    showView('landing');
+  };
+
+  // ===== Legend =====
+  function buildLegend() {
+    const legend = document.getElementById('legend');
+    legend.innerHTML = '';
+    for (const [key, g] of Object.entries(SUBJECT_GROUPS)) {
+      const item = document.createElement('div');
+      item.className = 'legend-item';
+      item.innerHTML = `<span class="legend-dot" style="background:${g.color}"></span>${g.label}`;
+      legend.appendChild(item);
+    }
+  }
+
+  // ===== Calendar Building =====
+  function buildCalendar(containerId, exams, highlightQuery) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+
+    // Calendar range: April 20 to May 24, 2026 (to show full weeks around the exam period)
+    const startDate = new Date(2026, 3, 20); // Mon Apr 20
+    const endDate = new Date(2026, 4, 24);   // Sun May 24
+
+    // Day headers
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    days.forEach(d => {
+      const header = document.createElement('div');
+      header.className = 'calendar-header';
+      header.textContent = d;
+      container.appendChild(header);
+    });
+
+    // Build day cells
+    const current = new Date(startDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    while (current <= endDate) {
+      const dateStr = formatDate(current);
+      const dayOfWeek = (current.getDay() + 6) % 7; // Mon=0
+
+      const dayExams = exams.filter(e => e.date === dateStr);
+      const morningExams = dayExams.filter(e => e.session === 'morning');
+      const afternoonExams = dayExams.filter(e => e.session === 'afternoon');
+
+      const cell = document.createElement('div');
+      cell.className = 'calendar-day';
+
+      const cellDate = new Date(current);
+      cellDate.setHours(0, 0, 0, 0);
+      if (cellDate.getTime() === today.getTime()) cell.classList.add('today');
+
+      // Check if outside exam period or weekend with no exams
+      if (dayExams.length === 0 && (dayOfWeek >= 5 || dateStr < '2026-04-24' || dateStr > '2026-05-20')) {
+        if (dayOfWeek >= 5) {
+          cell.classList.add('no-exams');
+        }
+      }
+
+      // Day number
+      const dayNum = document.createElement('div');
+      dayNum.className = 'day-number';
+      const dayLabel = current.toLocaleDateString('en-US', { weekday: 'short' });
+      dayNum.innerHTML = `<span class="day-label">${dayLabel}</span>${current.getDate()}`;
+      cell.appendChild(dayNum);
+
+      // Month label for first of month
+      if (current.getDate() === 1) {
+        const monthLabel = document.createElement('div');
+        monthLabel.style.cssText = 'font-size:0.6rem;color:var(--text-muted);margin-bottom:2px;';
+        monthLabel.textContent = current.toLocaleDateString('en-US', { month: 'short' });
+        cell.insertBefore(monthLabel, dayNum);
+      }
+
+      // Exam dots
+      if (dayExams.length > 0) {
+        // Morning session
+        if (morningExams.length > 0) {
+          const sessionLabel = document.createElement('div');
+          sessionLabel.className = 'day-session-label';
+          sessionLabel.textContent = 'AM';
+          cell.appendChild(sessionLabel);
+          const dots = document.createElement('div');
+          dots.className = 'day-dots';
+          morningExams.forEach(exam => {
+            const dot = document.createElement('div');
+            dot.className = 'day-dot';
+            const color = SUBJECT_GROUPS[exam.group]?.color || '#888';
+            dot.style.backgroundColor = color;
+            dot.style.color = color;
+
+            // Highlight logic
+            if (highlightQuery) {
+              const matches = exam.name.toLowerCase().includes(highlightQuery.toLowerCase());
+              if (matches) {
+                dot.classList.add('highlighted-dot');
+              } else {
+                dot.classList.add('dimmed');
+              }
+            }
+
+            dots.appendChild(dot);
+          });
+          cell.appendChild(dots);
+        }
+
+        // Afternoon session
+        if (afternoonExams.length > 0) {
+          const sessionLabel = document.createElement('div');
+          sessionLabel.className = 'day-session-label';
+          sessionLabel.textContent = 'PM';
+          cell.appendChild(sessionLabel);
+          const dots = document.createElement('div');
+          dots.className = 'day-dots';
+          afternoonExams.forEach(exam => {
+            const dot = document.createElement('div');
+            dot.className = 'day-dot';
+            const color = SUBJECT_GROUPS[exam.group]?.color || '#888';
+            dot.style.backgroundColor = color;
+            dot.style.color = color;
+
+            if (highlightQuery) {
+              const matches = exam.name.toLowerCase().includes(highlightQuery.toLowerCase());
+              if (matches) {
+                dot.classList.add('highlighted-dot');
+              } else {
+                dot.classList.add('dimmed');
+              }
+            }
+
+            dots.appendChild(dot);
+          });
+          cell.appendChild(dots);
+        }
+
+        // Check if any exam matches highlight
+        if (highlightQuery) {
+          const anyMatch = dayExams.some(e => e.name.toLowerCase().includes(highlightQuery.toLowerCase()));
+          if (anyMatch) cell.classList.add('highlighted');
+        }
+
+        // Tooltip on hover
+        cell.addEventListener('mouseenter', (ev) => showTooltip(ev, dateStr, dayExams));
+        cell.addEventListener('mousemove', (ev) => positionTooltip(ev));
+        cell.addEventListener('mouseleave', hideTooltip);
+      }
+
+      container.appendChild(cell);
+      current.setDate(current.getDate() + 1);
+    }
+  }
+
+  function buildFullCalendar(query) {
+    buildCalendar('calendar-grid', EXAMS, query);
+  }
+
+  // ===== Tooltip =====
+  const tooltip = document.getElementById('tooltip');
+
+  function showTooltip(ev, dateStr, dayExams) {
+    const date = new Date(dateStr + 'T00:00:00');
+    const dateLabel = date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+
+    let html = `<div class="tooltip-date">${dateLabel}</div>`;
+
+    const morningExams = dayExams.filter(e => e.session === 'morning');
+    const afternoonExams = dayExams.filter(e => e.session === 'afternoon');
+
+    if (morningExams.length > 0) {
+      html += `<div class="tooltip-session">Morning Session</div>`;
+      morningExams.forEach(exam => {
+        const color = SUBJECT_GROUPS[exam.group]?.color || '#888';
+        html += `<div class="tooltip-exam">
+          <span class="t-dot" style="background:${sanitize(color)}"></span>
+          <span class="t-name">${sanitize(exam.name)}</span>
+          <span class="t-dur">${formatDuration(exam.duration)}</span>
+        </div>`;
+      });
+    }
+
+    if (afternoonExams.length > 0) {
+      html += `<div class="tooltip-session">Afternoon Session</div>`;
+      afternoonExams.forEach(exam => {
+        const color = SUBJECT_GROUPS[exam.group]?.color || '#888';
+        html += `<div class="tooltip-exam">
+          <span class="t-dot" style="background:${sanitize(color)}"></span>
+          <span class="t-name">${sanitize(exam.name)}</span>
+          <span class="t-dur">${formatDuration(exam.duration)}</span>
+        </div>`;
+      });
+    }
+
+    tooltip.innerHTML = html;
+    tooltip.classList.add('visible');
+    positionTooltip(ev);
+  }
+
+  function positionTooltip(ev) {
+    const pad = 16;
+    let x = ev.clientX + pad;
+    let y = ev.clientY + pad;
+    const rect = tooltip.getBoundingClientRect();
+    if (x + rect.width > window.innerWidth) x = ev.clientX - rect.width - pad;
+    if (y + rect.height > window.innerHeight) y = ev.clientY - rect.height - pad;
+    tooltip.style.left = x + 'px';
+    tooltip.style.top = y + 'px';
+  }
+
+  function hideTooltip() {
+    tooltip.classList.remove('visible');
+  }
+
+  // ===== Search =====
+  function setupSearch() {
+    const input = document.getElementById('search-input');
+    const clearBtn = document.getElementById('search-clear');
+    let debounce;
+
+    input.addEventListener('input', () => {
+      clearTimeout(debounce);
+      const q = input.value.trim();
+      clearBtn.classList.toggle('visible', q.length > 0);
+      debounce = setTimeout(() => {
+        buildFullCalendar(q || undefined);
+      }, 200);
+    });
+
+    clearBtn.addEventListener('click', () => {
+      input.value = '';
+      clearBtn.classList.remove('visible');
+      buildFullCalendar();
+    });
+  }
+
+  // ===== Course Selector =====
+  function buildCourseDropdown() {
+    const dropdown = document.getElementById('course-dropdown');
+
+    const groups = {
+      'Studies in Language & Literature': COURSES.filter(c =>
+        c.id.startsWith('lang_a_') || c.id.startsWith('english_a_') ||
+        c.id.startsWith('french_a_') || c.id.startsWith('spanish_a_') ||
+        c.id === 'lit_performance_sl'
+      ),
+      'Language Acquisition': COURSES.filter(c =>
+        c.id.startsWith('lang_b_') || c.id.startsWith('lang_ab_') ||
+        c.id.startsWith('english_b_') || c.id.startsWith('english_ab_') ||
+        c.id.startsWith('french_b_') || c.id.startsWith('french_ab_') ||
+        c.id.startsWith('spanish_b_') || c.id.startsWith('spanish_ab_') ||
+        c.id.startsWith('latin_') || c.id.startsWith('classical_greek_')
+      ),
+      'Individuals & Societies': COURSES.filter(c => c.group === 'individuals'),
+      'Sciences': COURSES.filter(c => c.group === 'sciences'),
+      'Mathematics': COURSES.filter(c => c.group === 'mathematics'),
+      'Interdisciplinary': COURSES.filter(c => c.group === 'interdisciplinary'),
+    };
+
+    for (const [label, courses] of Object.entries(groups)) {
+      const optgroup = document.createElement('optgroup');
+      optgroup.label = label;
+      courses.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name;
+        optgroup.appendChild(opt);
+      });
+      dropdown.appendChild(optgroup);
+    }
+  }
+
+  window.addSelectedCourse = function () {
+    const dropdown = document.getElementById('course-dropdown');
+    const id = dropdown.value;
+    if (!id || selectedCourseIds.includes(id)) return;
+    if (selectedCourseIds.length >= 7) return;
+
+    selectedCourseIds.push(id);
+    saveCourses();
+    renderSelectedCourses();
+    dropdown.value = '';
+  };
+
+  function removeCourse(id) {
+    selectedCourseIds = selectedCourseIds.filter(c => c !== id);
+    saveCourses();
+    renderSelectedCourses();
+    // Hide personal result if courses change
+    document.getElementById('personal-result').style.display = 'none';
+  }
+
+  function renderSelectedCourses() {
+    const container = document.getElementById('selected-courses');
+    container.innerHTML = '';
+
+    selectedCourseIds.forEach(id => {
+      const course = getCourse(id);
+      if (!course) return;
+      const color = SUBJECT_GROUPS[course.group]?.color || '#888';
+      const tag = document.createElement('span');
+      tag.className = 'course-tag';
+      tag.style.borderColor = color;
+      tag.style.color = color;
+      tag.innerHTML = `${sanitize(course.name)} <button class="remove-course" title="Remove">&times;</button>`;
+      tag.querySelector('.remove-course').addEventListener('click', () => removeCourse(id));
+      container.appendChild(tag);
+    });
+
+    document.getElementById('generate-btn').disabled = selectedCourseIds.length === 0;
+  }
+
+  function saveCourses() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(selectedCourseIds));
+  }
+
+  function loadSavedCourses() {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        selectedCourseIds = JSON.parse(saved);
+        renderSelectedCourses();
+      }
+    } catch (e) {
+      selectedCourseIds = [];
+    }
+  }
+
+  // ===== Personal Calendar =====
+  window.generatePersonalCalendar = function () {
+    if (selectedCourseIds.length === 0) return;
+
+    const myExams = getExamsForCourses(selectedCourseIds);
+    myExams.sort((a, b) => a.date.localeCompare(b.date) || (a.session === 'morning' ? -1 : 1));
+
+    // Build calendar
+    buildCalendar('personal-calendar-grid', myExams);
+
+    // Build stats
+    buildStats(myExams);
+
+    // Build exam list
+    buildExamList(myExams);
+
+    // Show result
+    document.getElementById('personal-result').style.display = 'block';
+
+    // Scroll to stats
+    document.getElementById('stats-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  function buildStats(myExams) {
+    const panel = document.getElementById('stats-panel');
+    panel.innerHTML = '';
+
+    const totalExams = myExams.length;
+    const totalMinutes = myExams.reduce((sum, e) => sum + e.duration, 0);
+
+    // Time per subject (group by course)
+    const perSubject = {};
+    myExams.forEach(exam => {
+      const relevantCourses = exam.courseIds.filter(id => selectedCourseIds.includes(id));
+      relevantCourses.forEach(cid => {
+        const course = getCourse(cid);
+        if (!course) return;
+        if (!perSubject[cid]) {
+          perSubject[cid] = { course, totalMinutes: 0, examCount: 0, firstExamDate: exam.date };
+        }
+        perSubject[cid].totalMinutes += exam.duration;
+        perSubject[cid].examCount++;
+        if (exam.date < perSubject[cid].firstExamDate) {
+          perSubject[cid].firstExamDate = exam.date;
+        }
+      });
+    });
+
+    // Card 1: Total exams
+    panel.innerHTML += `
+      <div class="stat-card">
+        <div class="stat-label">Total Exams</div>
+        <div class="stat-value">${totalExams}</div>
+        <div class="stat-detail">across ${Object.keys(perSubject).length} subject${Object.keys(perSubject).length !== 1 ? 's' : ''}</div>
+      </div>
+    `;
+
+    // Card 2: Total exam time
+    panel.innerHTML += `
+      <div class="stat-card">
+        <div class="stat-label">Total Exam Time</div>
+        <div class="stat-value">${formatDuration(totalMinutes)}</div>
+        <div class="stat-detail">${Math.round(totalMinutes / 60 * 10) / 10} hours total</div>
+      </div>
+    `;
+
+    // Card 3: First exam countdown
+    const now = new Date();
+    const firstDate = myExams[0] ? new Date(myExams[0].date + 'T00:00:00') : null;
+    let countdownText = '-';
+    if (firstDate) {
+      const diffMs = firstDate - now;
+      const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      countdownText = diffDays > 0 ? `${diffDays} day${diffDays !== 1 ? 's' : ''}` : (diffDays === 0 ? 'Today' : 'Passed');
+    }
+    panel.innerHTML += `
+      <div class="stat-card">
+        <div class="stat-label">Until First Exam</div>
+        <div class="stat-value">${countdownText}</div>
+        <div class="stat-detail">${firstDate ? firstDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}</div>
+      </div>
+    `;
+
+    // Card 4: Time per subject breakdown
+    let breakdownHtml = '<div class="stat-breakdown">';
+    for (const [cid, data] of Object.entries(perSubject)) {
+      const color = SUBJECT_GROUPS[data.course.group]?.color || '#888';
+      breakdownHtml += `
+        <div class="stat-breakdown-item">
+          <span class="sb-dot" style="background:${sanitize(color)}"></span>
+          <span class="sb-name">${sanitize(data.course.name)}</span>
+          <span class="sb-val">${data.examCount} exam${data.examCount !== 1 ? 's' : ''} · ${formatDuration(data.totalMinutes)}</span>
+        </div>`;
+    }
+    breakdownHtml += '</div>';
+
+    panel.innerHTML += `
+      <div class="stat-card" style="grid-column: 1 / -1;">
+        <div class="stat-label">Breakdown by Subject</div>
+        ${breakdownHtml}
+      </div>
+    `;
+
+    // Card 5: Study time remaining per subject
+    let studyHtml = '<div class="stat-breakdown">';
+    for (const [cid, data] of Object.entries(perSubject)) {
+      const color = SUBJECT_GROUPS[data.course.group]?.color || '#888';
+      const examDate = new Date(data.firstExamDate + 'T00:00:00');
+      const daysUntil = Math.max(0, Math.ceil((examDate - now) / (1000 * 60 * 60 * 24)));
+      studyHtml += `
+        <div class="stat-breakdown-item">
+          <span class="sb-dot" style="background:${sanitize(color)}"></span>
+          <span class="sb-name">${sanitize(data.course.name)}</span>
+          <span class="sb-val">${daysUntil} day${daysUntil !== 1 ? 's' : ''} until first paper</span>
+        </div>`;
+    }
+    studyHtml += '</div>';
+
+    panel.innerHTML += `
+      <div class="stat-card" style="grid-column: 1 / -1;">
+        <div class="stat-label">Study Time Remaining</div>
+        ${studyHtml}
+      </div>
+    `;
+  }
+
+  function buildExamList(myExams) {
+    const container = document.getElementById('personal-exam-list');
+    container.innerHTML = '';
+
+    const byDate = {};
+    myExams.forEach(e => {
+      if (!byDate[e.date]) byDate[e.date] = [];
+      byDate[e.date].push(e);
+    });
+
+    for (const [date, exams] of Object.entries(byDate)) {
+      const dateObj = new Date(date + 'T00:00:00');
+      const dateLabel = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+      const group = document.createElement('div');
+      group.className = 'exam-list-day';
+      group.innerHTML = `<div class="exam-list-date">${dateLabel}</div>`;
+
+      exams.sort((a, b) => (a.session === 'morning' ? -1 : 1));
+      exams.forEach(exam => {
+        const color = SUBJECT_GROUPS[exam.group]?.color || '#888';
+        const item = document.createElement('div');
+        item.className = 'exam-list-item';
+        item.innerHTML = `
+          <span class="el-dot" style="background:${sanitize(color)}"></span>
+          <span class="el-session">${exam.session === 'morning' ? 'AM' : 'PM'}</span>
+          <span class="el-name">${sanitize(exam.name)}</span>
+          <span class="el-dur">${formatDuration(exam.duration)}</span>
+        `;
+        group.appendChild(item);
+      });
+
+      container.appendChild(group);
+    }
+  }
+
+  // ===== Exports =====
+
+  // SVG Export
+  window.exportSVG = function () {
+    const myExams = getExamsForCourses(selectedCourseIds);
+    myExams.sort((a, b) => a.date.localeCompare(b.date) || (a.session === 'morning' ? -1 : 1));
+
+    const padding = 40;
+    const dayWidth = 160;
+    const dayHeight = 28;
+    const headerHeight = 50;
+    const titleHeight = 60;
+
+    // Group by date
+    const byDate = {};
+    myExams.forEach(e => {
+      if (!byDate[e.date]) byDate[e.date] = [];
+      byDate[e.date].push(e);
+    });
+
+    const dates = Object.keys(byDate).sort();
+    let maxExamsPerDay = 0;
+    dates.forEach(d => { if (byDate[d].length > maxExamsPerDay) maxExamsPerDay = byDate[d].length; });
+
+    const svgWidth = padding * 2 + dayWidth + 500;
+    const svgHeight = titleHeight + headerHeight + dates.length * (dayHeight * (maxExamsPerDay + 1) + 20) + padding * 2;
+
+    let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}">`;
+    svg += `<rect width="100%" height="100%" fill="#000"/>`;
+    svg += `<text x="${svgWidth / 2}" y="${padding + 24}" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="20" font-weight="700" fill="#fff">IB May 2026 — My Exam Schedule</text>`;
+
+    let y = titleHeight + padding;
+    dates.forEach(dateStr => {
+      const dateObj = new Date(dateStr + 'T00:00:00');
+      const label = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      svg += `<text x="${padding}" y="${y + 18}" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#999">${escapeXml(label)}</text>`;
+      y += 28;
+
+      byDate[dateStr].forEach(exam => {
+        const color = SUBJECT_GROUPS[exam.group]?.color || '#888';
+        svg += `<circle cx="${padding + 8}" cy="${y + 10}" r="4" fill="${color}"/>`;
+        svg += `<text x="${padding + 20}" y="${y + 14}" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" fill="#ccc">${escapeXml(exam.name)}</text>`;
+        svg += `<text x="${svgWidth - padding}" y="${y + 14}" text-anchor="end" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#666">${exam.session === 'morning' ? 'AM' : 'PM'} · ${formatDuration(exam.duration)}</text>`;
+        y += dayHeight;
+      });
+      y += 12;
+    });
+
+    svg += `</svg>`;
+
+    downloadFile('ib-exam-schedule.svg', svg, 'image/svg+xml');
+  };
+
+  // ICS Export (Google Calendar & Outlook)
+  window.exportICS = function (type) {
+    const myExams = getExamsForCourses(selectedCourseIds);
+    myExams.sort((a, b) => a.date.localeCompare(b.date));
+
+    let ics = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//IB Examiner//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\n';
+
+    myExams.forEach(exam => {
+      const dateClean = exam.date.replace(/-/g, '');
+      // Morning session: 09:00, Afternoon: 14:00 (generic — Zone B1)
+      const startHour = exam.session === 'morning' ? '090000' : '140000';
+      const startDate = new Date(exam.date + (exam.session === 'morning' ? 'T09:00:00' : 'T14:00:00'));
+      const endDate = new Date(startDate.getTime() + exam.duration * 60000);
+      const endHour = String(endDate.getHours()).padStart(2, '0') + String(endDate.getMinutes()).padStart(2, '0') + '00';
+
+      const uid = `ib-exam-${dateClean}-${startHour}-${hashCode(exam.name)}@ibexaminer`;
+
+      ics += 'BEGIN:VEVENT\r\n';
+      ics += `DTSTART:${dateClean}T${startHour}\r\n`;
+      ics += `DTEND:${dateClean}T${endHour}\r\n`;
+      ics += `SUMMARY:${icsEscape(exam.name)}\r\n`;
+      ics += `DESCRIPTION:${icsEscape('IB Exam — ' + exam.name + ' (' + formatDuration(exam.duration) + ')')}\r\n`;
+      ics += `UID:${uid}\r\n`;
+      ics += 'END:VEVENT\r\n';
+    });
+
+    ics += 'END:VCALENDAR\r\n';
+
+    const filename = type === 'google' ? 'ib-exams-google.ics' : 'ib-exams-outlook.ics';
+    downloadFile(filename, ics, 'text/calendar');
+  };
+
+  // CSV Export
+  window.exportCSV = function () {
+    const myExams = getExamsForCourses(selectedCourseIds);
+    myExams.sort((a, b) => a.date.localeCompare(b.date) || (a.session === 'morning' ? -1 : 1));
+
+    let csv = 'Date,Day,Session,Subject,Duration (minutes),Duration\n';
+    myExams.forEach(exam => {
+      const dateObj = new Date(exam.date + 'T00:00:00');
+      const day = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+      const dateFormatted = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      csv += `"${dateFormatted}","${day}","${exam.session}","${exam.name.replace(/"/g, '""')}",${exam.duration},"${formatDuration(exam.duration)}"\n`;
+    });
+
+    downloadFile('ib-exam-schedule.csv', csv, 'text/csv');
+  };
+
+  // ===== Utilities =====
+
+  function formatDate(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  function sanitize(str) {
+    const el = document.createElement('span');
+    el.textContent = str;
+    return el.innerHTML;
+  }
+
+  function escapeXml(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+  }
+
+  function icsEscape(str) {
+    return str.replace(/[\\;,]/g, c => '\\' + c).replace(/\n/g, '\\n');
+  }
+
+  function hashCode(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash |= 0;
+    }
+    return Math.abs(hash).toString(36);
+  }
+
+  function downloadFile(filename, content, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+})();
