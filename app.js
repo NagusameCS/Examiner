@@ -75,6 +75,7 @@
     document.getElementById('btn-export-outlook').addEventListener('click', () => exportICS('outlook'));
     document.getElementById('btn-export-csv').addEventListener('click', () => exportCSV());
     document.getElementById('btn-copy-link').addEventListener('click', () => copyShareLink());
+    document.getElementById('btn-copy-calendar').addEventListener('click', () => copyCalendarText());
 
     // Nav links
     document.querySelectorAll('.nav-links a[data-view]').forEach(a => {
@@ -1190,6 +1191,37 @@
     });
 
     downloadFile('exam-schedule.csv', csv, 'text/csv');
+  };
+
+  // Copy plaintext calendar
+  window.copyCalendarText = function () {
+    const myExams = getExamsForCourses(selectedCourseIds);
+    myExams.sort((a, b) => a.date.localeCompare(b.date) || (a.session === 'morning' ? -1 : 1));
+
+    let currentDate = '';
+    let text = 'My Exam Calendar — Examiner\n';
+    text += '='.repeat(34) + '\n\n';
+
+    myExams.forEach(exam => {
+      const dateObj = new Date(exam.date + 'T00:00:00');
+      const day = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+      const dateFormatted = dateObj.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      if (exam.date !== currentDate) {
+        currentDate = exam.date;
+        text += `${day}, ${dateFormatted}\n`;
+      }
+      const session = exam.session === 'morning' ? 'AM' : 'PM';
+      text += `  [${session}] ${exam.name} (${formatDuration(exam.duration)})\n`;
+    });
+
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('btn-copy-calendar');
+      const orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = orig; }, 2000);
+    }).catch(() => {
+      prompt('Copy your calendar:', text);
+    });
   };
 
   // Share Link
