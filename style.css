@@ -245,6 +245,13 @@ a:hover { opacity: 0.7; }
   height: 16px;
 }
 
+.view-counter {
+  margin-top: 12px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
 /* ===== BUTTONS ===== */
 .btn {
   display: inline-flex;

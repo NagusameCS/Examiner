@@ -1604,6 +1604,20 @@
     URL.revokeObjectURL(url);
   }
 
+  /* ===== VIEW COUNTER ===== */
+  (function initViewCounter() {
+    var el = document.getElementById('view-counter');
+    if (!el) return;
+    fetch('https://api.counterapi.dev/v1/nagusamecs-examiner/views/up')
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d && typeof d.count === 'number') {
+          el.textContent = d.count.toLocaleString() + ' visits';
+        }
+      })
+      .catch(function() {});
+  })();
+
   /* ===== ORBITING SOCIAL BUTTONS ===== */
   (function initOrbitSocials() {
     const container = document.getElementById('orbit-socials');
