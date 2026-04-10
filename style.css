@@ -516,7 +516,8 @@ a:hover { opacity: 0.7; }
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 16px;
-  max-width: 360px;
+  max-width: 520px;
+  min-width: 280px;
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.15s ease;
@@ -534,18 +535,25 @@ a:hover { opacity: 0.7; }
   color: var(--text-primary);
 }
 
+.tooltip-split {
+  display: flex;
+  gap: 16px;
+}
+
+.tooltip-col {
+  flex: 1;
+  min-width: 0;
+}
+
 .tooltip-session {
   font-size: 0.68rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 1px;
   color: var(--text-muted);
-  margin-top: 8px;
-  margin-bottom: 4px;
-}
-
-.tooltip-session:first-of-type {
-  margin-top: 0;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
 }
 
 .tooltip-exam {
@@ -572,6 +580,13 @@ a:hover { opacity: 0.7; }
 .tooltip-exam .t-dur {
   color: var(--text-muted);
   white-space: nowrap;
+}
+
+.tooltip-empty {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  opacity: 0.5;
+  padding: 4px 0;
 }
 
 /* ===== SUBJECT SELECTOR ===== */

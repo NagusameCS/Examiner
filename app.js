@@ -129,8 +129,16 @@
       a.classList.toggle('active', a.dataset.view === viewId);
     });
 
-    // Show nav links when not on landing
-    document.getElementById('nav-links').style.display = viewId === 'landing' ? 'none' : '';
+    // Show nav links when not on landing; hide landing permanently once user leaves
+    const navLinks = document.getElementById('nav-links');
+    const landingEl = document.getElementById('landing');
+    if (viewId === 'landing') {
+      navLinks.style.display = 'none';
+      if (landingEl) landingEl.style.display = '';
+    } else {
+      navLinks.style.display = '';
+      if (landingEl) landingEl.style.display = 'none';
+    }
 
     // Build calendar when showing full calendar
     if (viewId === 'calendar') {
@@ -329,13 +337,16 @@
     const date = new Date(dateStr + 'T00:00:00');
     const dateLabel = date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 
-    let html = `<div class="tooltip-date">${dateLabel}</div>`;
-
     const morningExams = dayExams.filter(e => e.session === 'morning');
     const afternoonExams = dayExams.filter(e => e.session === 'afternoon');
 
+    let html = `<div class="tooltip-date">${dateLabel}</div>`;
+    html += '<div class="tooltip-split">';
+
+    // AM column (left)
+    html += '<div class="tooltip-col">';
+    html += '<div class="tooltip-session">AM</div>';
     if (morningExams.length > 0) {
-      html += `<div class="tooltip-session">Morning Session</div>`;
       morningExams.forEach(exam => {
         const color = SUBJECT_GROUPS[exam.group]?.color || '#888';
         const dotClass = exam.group === 'ap' ? 't-dot dot-ap' : 't-dot';
@@ -345,10 +356,15 @@
           <span class="t-dur">${formatDuration(exam.duration)}</span>
         </div>`;
       });
+    } else {
+      html += '<div class="tooltip-empty">No exams</div>';
     }
+    html += '</div>';
 
+    // PM column (right)
+    html += '<div class="tooltip-col">';
+    html += '<div class="tooltip-session">PM</div>';
     if (afternoonExams.length > 0) {
-      html += `<div class="tooltip-session">Afternoon Session</div>`;
       afternoonExams.forEach(exam => {
         const color = SUBJECT_GROUPS[exam.group]?.color || '#888';
         const dotClass = exam.group === 'ap' ? 't-dot dot-ap' : 't-dot';
@@ -358,7 +374,12 @@
           <span class="t-dur">${formatDuration(exam.duration)}</span>
         </div>`;
       });
+    } else {
+      html += '<div class="tooltip-empty">No exams</div>';
     }
+    html += '</div>';
+
+    html += '</div>';
 
     tooltip.innerHTML = html;
     tooltip.classList.add('visible');
