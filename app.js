@@ -870,6 +870,38 @@
     });
 
     html += '</ul>';
+
+    // If there are actual time conflicts, offer email-to-counselor link
+    if (highConflicts.length > 0) {
+      const conflictLines = highConflicts.map(c => {
+        const dateObj = new Date(c.date + 'T00:00:00');
+        const label = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+        const session = c.session === 'morning' ? 'Morning' : 'Afternoon';
+        return `• ${label} (${session} session): ${c.exams.join(', ')}`;
+      });
+
+      const body = [
+        'Dear Counselor,',
+        '',
+        'I hope this email finds you well. I am writing to bring to your attention a scheduling conflict in my upcoming May 2026 examination timetable that I would appreciate your guidance on.',
+        '',
+        'After reviewing my exam schedule, I have identified the following overlap(s) where two or more of my subjects are scheduled in the same session:',
+        '',
+        ...conflictLines,
+        '',
+        'As these exams are set for the same time slot, I will not be able to sit for all of them as currently scheduled. I would be grateful if you could advise me on the process for requesting an alternative session or any other arrangements that may be available.',
+        '',
+        'Please let me know if you need any additional information from my end. I am happy to meet at your earliest convenience to discuss this further.',
+        '',
+        'Thank you for your time and support.',
+        '',
+        'Kind regards'
+      ].join('\n');
+
+      const gmailUrl = 'https://mail.google.com/mail/?view=cm&fs=1&body=' + encodeURIComponent(body);
+      html += '<p class="conflict-email-prompt">If you haven\'t already resolved this, <a href="' + gmailUrl + '" target="_blank" rel="noopener">click here to email your counselor</a> about the conflict.</p>';
+    }
+
     banner.innerHTML = html;
     banner.style.display = 'block';
   }

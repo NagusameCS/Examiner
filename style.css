@@ -805,6 +805,24 @@ a:hover { opacity: 0.7; }
   color: #ff6b6b;
 }
 
+.conflict-email-prompt {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 80, 80, 0.2);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.conflict-email-prompt a {
+  color: #ff6b6b;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.conflict-email-prompt a:hover {
+  color: #ff8787;
+}
+
 .calendar-day.has-conflict {
   border-color: #ff6b6b !important;
   background: rgba(255, 80, 80, 0.08);
