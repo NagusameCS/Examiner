@@ -6,6 +6,7 @@
   <title>Examiner — May 2026 Exam Calendar</title>
   <meta name="description" content="Free May 2026 exam calendar tool. View the full schedule, build your personal calendar, get study stats, and export to Google/Outlook Calendar.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='10' cy='20' r='7' fill='%234A9EFF'/><polygon points='22,5 15,19 29,19' fill='%2300B4D8'/></svg>">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=arrow_downward,arrow_upward,drag_indicator" />
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -112,6 +113,7 @@
         </div>
         <div class="edit-subjects-bar">
           <a href="#/select" class="btn btn-secondary btn-sm">Edit Subjects</a>
+          <a href="#/study" class="btn btn-secondary btn-sm" id="go-study-btn">Study Planner →</a>
         </div>
       </div>
     </div>
@@ -122,13 +124,18 @@
       <div class="view-header">
         <h2 class="section-title"><span>Study Planner</span></h2>
       </div>
-      <div id="study-no-courses" class="study-empty" style="display:none;">
-        <p>Select your subjects first to build a study plan.</p>
-        <a href="#/select" class="btn btn-secondary" id="study-select-link">Select Subjects</a>
-      </div>
       <div id="study-config" class="study-config">
-        <h3>Rank Your Subjects by Difficulty</h3>
-        <p class="selector-hint">Drag subjects between tiers. Within each tier, rank hardest at the top. Easy subjects only get studied when no Hard/Medium exams are upcoming.</p>
+        <h3>Your Study Subjects</h3>
+        <p class="selector-hint">Add or remove subjects to study. These are independent from your exam calendar.</p>
+        <div id="study-selected-courses" class="selected-courses"></div>
+        <div class="add-course-row">
+          <div class="searchable-dropdown" id="study-searchable-dropdown">
+            <input type="text" id="study-course-search" class="course-search-input" placeholder="Add a subject..." autocomplete="off">
+            <div class="dropdown-list" id="study-dropdown-list"></div>
+          </div>
+        </div>
+        <h3 style="margin-top:28px;">Rank Your Subjects by Difficulty</h3>
+        <p class="selector-hint">Within each tier, rank hardest at the top. Easy subjects only get studied when no Hard/Medium exams are upcoming.</p>
         <div id="ranking-list" class="ranking-list"></div>
         <div class="study-settings">
           <label class="study-hours-label">
@@ -139,12 +146,16 @@
             Max subjects per day
             <input type="number" id="max-subjects-input" value="5" min="1" max="20" step="1">
           </label>
+          <label class="study-toggle-label">
+            <input type="checkbox" id="no-exam-day-study" checked>
+            No studying on exam days
+          </label>
         </div>
         <button class="btn btn-primary" id="generate-study-btn">Generate Study Plan</button>
       </div>
       <div id="study-result" style="display:none;">
         <div id="study-summary" class="study-summary"></div>
-        <div id="study-schedule" class="study-schedule"></div>
+        <div id="study-calendar" class="study-calendar"></div>
       </div>
     </div>
   </section>
