@@ -1059,11 +1059,44 @@
     const myExams = getExamsForCourses(selectedCourseIds);
     myExams.sort((a, b) => a.date.localeCompare(b.date));
 
+    if (type === 'google') {
+      // Open Google Calendar event creation for each exam
+      // For multiple exams, open the first and download ICS as backup
+      myExams.forEach(exam => {
+        const startDate = new Date(exam.date + (exam.session === 'morning' ? 'T09:00:00' : 'T14:00:00'));
+        const endDate = new Date(startDate.getTime() + exam.duration * 60000);
+        const fmt = d => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+        const params = new URLSearchParams({
+          action: 'TEMPLATE',
+          text: exam.name,
+          dates: fmt(startDate) + '/' + fmt(endDate),
+          details: 'Exam — ' + exam.name + ' (' + formatDuration(exam.duration) + ')'
+        });
+        window.open('https://calendar.google.com/calendar/render?' + params.toString(), '_blank');
+      });
+      return;
+    }
+
+    if (type === 'outlook') {
+      // Build ICS and open Outlook web import
+      const ics = buildICS(myExams);
+      const blob = new Blob([ics], { type: 'text/calendar' });
+      const dataUrl = URL.createObjectURL(blob);
+
+      // Download the ICS first so the user has it
+      downloadFile('exams-outlook.ics', ics, 'text/calendar');
+
+      // Open Outlook calendar — the user can import the downloaded file
+      window.open('https://outlook.live.com/calendar/0/addevent', '_blank');
+      return;
+    }
+  };
+
+  function buildICS(myExams) {
     let ics = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Examiner//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\n';
 
     myExams.forEach(exam => {
       const dateClean = exam.date.replace(/-/g, '');
-      // Morning session: 09:00, Afternoon: 14:00 (generic — Zone B1)
       const startHour = exam.session === 'morning' ? '090000' : '140000';
       const startDate = new Date(exam.date + (exam.session === 'morning' ? 'T09:00:00' : 'T14:00:00'));
       const endDate = new Date(startDate.getTime() + exam.duration * 60000);
@@ -1075,16 +1108,14 @@
       ics += `DTSTART:${dateClean}T${startHour}\r\n`;
       ics += `DTEND:${dateClean}T${endHour}\r\n`;
       ics += `SUMMARY:${icsEscape(exam.name)}\r\n`;
-      ics += `DESCRIPTION:${icsEscape('IB Exam — ' + exam.name + ' (' + formatDuration(exam.duration) + ')')}\r\n`;
+      ics += `DESCRIPTION:${icsEscape('Exam — ' + exam.name + ' (' + formatDuration(exam.duration) + ')')}\r\n`;
       ics += `UID:${uid}\r\n`;
       ics += 'END:VEVENT\r\n';
     });
 
     ics += 'END:VCALENDAR\r\n';
-
-    const filename = type === 'google' ? 'exams-google.ics' : 'exams-outlook.ics';
-    downloadFile(filename, ics, 'text/calendar');
-  };
+    return ics;
+  }
 
   // CSV Export
   window.exportCSV = function () {
