@@ -1123,6 +1123,13 @@ footer a {
   color: var(--text-muted);
 }
 
+.sa-pct {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  min-width: 32px;
+  text-align: right;
+}
+
 .study-summary .btn {
   margin: 12px 6px 0;
 }
@@ -1171,6 +1178,19 @@ footer a {
   border-radius: var(--radius-sm);
   padding: 12px 14px;
   margin-bottom: 6px;
+}
+
+.study-day.study-day-exam {
+  border-color: var(--conflict);
+  background: rgba(255, 107, 107, 0.06);
+}
+
+.sd-exam-tag {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--conflict);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .study-day-header {

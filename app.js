@@ -1301,10 +1301,26 @@
       const exams = EXAMS.filter(e => e.courseIds.includes(courseId));
       const sorted = [...exams].sort((a, b) => a.date.localeCompare(b.date));
       const firstExam = sorted[0];
+      const lastExam = sorted[sorted.length - 1];
       const examDate = firstExam ? new Date(firstExam.date + 'T00:00:00') : new Date('2026-05-20T00:00:00');
+      const lastExamDate = lastExam ? new Date(lastExam.date + 'T00:00:00') : examDate;
       const daysUntil = Math.max(1, Math.ceil((examDate - today) / 86400000));
       const diffWeight = N - rankIndex; // index 0 = hardest = highest weight
-      return { courseId, course, examDate, daysUntil, rankIndex, diffWeight, totalHours: 0 };
+      const totalExamMins = exams.reduce((s, e) => s + e.duration, 0);
+      const examDates = [...new Set(exams.map(e => e.date))]; // unique exam dates
+      return {
+        courseId, course, examDate, lastExamDate, daysUntil,
+        rankIndex, diffWeight, totalHours: 0, totalExamMins, examDates
+      };
+    });
+
+    // Build a set of all exam dates for quick lookup
+    const allExamDateMap = {}; // date -> [courseIds with exams]
+    courseData.forEach(c => {
+      c.examDates.forEach(d => {
+        if (!allExamDateMap[d]) allExamDateMap[d] = [];
+        allExamDateMap[d].push(c.courseId);
+      });
     });
 
     // Load custom hour overrides
@@ -1314,58 +1330,124 @@
       if (saved) customHours = JSON.parse(saved);
     } catch (e) { customHours = null; }
 
-    // Compute total hours per subject
-    const maxDays = Math.max(...courseData.map(c => c.daysUntil));
+    // Compute total study days available per subject (exclude dates on/after their last exam)
+    const maxDate = new Date(Math.max(...courseData.map(c => c.examDate.getTime())));
+    const totalDays = Math.max(1, Math.ceil((maxDate - today) / 86400000));
 
     if (customHours && Object.keys(customHours).length > 0) {
       courseData.forEach(c => {
         c.totalHours = customHours[c.courseId] !== undefined ? customHours[c.courseId] : 0;
       });
     } else {
-      // Score = diffWeight * sqrt(daysUntil) — harder subjects + more prep time = more hours
-      courseData.forEach(c => { c.score = c.diffWeight * Math.sqrt(c.daysUntil); });
+      // Weighted allocation: difficulty × exam weight × log(daysUntil+1)
+      // Harder subjects get more; heavier exams (more total minutes) get more;
+      // subjects with more prep time get slightly more (diminishing)
+      courseData.forEach(c => {
+        const examWeight = Math.sqrt(c.totalExamMins / 60); // sqrt of exam hours
+        c.score = c.diffWeight * examWeight * Math.log2(c.daysUntil + 1);
+      });
       const totalScore = courseData.reduce((s, c) => s + c.score, 0);
-      const totalAvail = maxDays * dailyHours;
+      const totalAvail = totalDays * dailyHours;
       courseData.forEach(c => {
         c.totalHours = Math.round((c.score / totalScore) * totalAvail * 2) / 2;
       });
     }
 
-    // Generate daily schedule
+    // ===== Iterative daily scheduler with convergence =====
+    // Track hours delivered per subject to ensure totals converge
+    const delivered = {};
+    courseData.forEach(c => { delivered[c.courseId] = 0; });
+
     const schedule = [];
-    for (let d = 0; d < maxDays; d++) {
+    for (let d = 0; d < totalDays; d++) {
       const date = new Date(today);
       date.setDate(date.getDate() + d);
       const dateStr = formatDate(date);
 
-      const active = courseData.filter(c => Math.ceil((c.examDate - date) / 86400000) > 0);
+      // Subjects still active: before their first exam date
+      const active = courseData.filter(c => {
+        return date < c.examDate;
+      });
       if (active.length === 0) continue;
 
-      // Weight = totalHours / sqrt(daysLeft) — subjects with more total hours and closer exams get priority
-      const weights = active.map(c => {
+      // Check what's being examined today
+      const examToday = allExamDateMap[dateStr] || [];
+
+      // Compute urgency-weighted priority per subject
+      const priorities = active.map(c => {
         const daysLeft = Math.max(1, Math.ceil((c.examDate - date) / 86400000));
-        return { courseId: c.courseId, weight: Math.max(0.01, c.totalHours) / Math.sqrt(daysLeft) };
-      });
+        const remaining = Math.max(0, c.totalHours - delivered[c.courseId]);
+        if (remaining <= 0) return { courseId: c.courseId, priority: 0 };
 
-      const totalWeight = weights.reduce((s, w) => s + w.weight, 0);
-      if (totalWeight === 0) continue;
+        // Base priority: remaining hours needed / days left = needed daily rate
+        let priority = remaining / daysLeft;
 
-      const allocations = weights.map(w => ({
-        courseId: w.courseId,
-        hours: Math.round((w.weight / totalWeight) * dailyHours * 4) / 4
-      })).filter(a => a.hours >= 0.25);
+        // Urgency multiplier: ramp up as exam approaches
+        if (daysLeft <= 1) priority *= 3.0;      // day before exam → strong boost
+        else if (daysLeft <= 3) priority *= 2.0;  // 2-3 days out
+        else if (daysLeft <= 7) priority *= 1.3;  // within a week
 
-      // Clamp total to daily limit
+        // Difficulty bonus: harder subjects get a small persistent boost
+        priority *= (1 + c.diffWeight * 0.05);
+
+        // If this subject has an exam today, reduce its allocation
+        // (student is taking the exam, not studying)
+        if (examToday.includes(c.courseId)) {
+          priority *= 0.15; // light review only
+        }
+
+        return { courseId: c.courseId, priority, remaining, daysLeft };
+      }).filter(p => p.priority > 0);
+
+      if (priorities.length === 0) continue;
+
+      const totalPriority = priorities.reduce((s, p) => s + p.priority, 0);
+
+      // Allocate proportionally to priority, respecting daily limit
+      let allocations = priorities.map(p => ({
+        courseId: p.courseId,
+        hours: Math.round((p.priority / totalPriority) * dailyHours * 4) / 4,
+        daysLeft: p.daysLeft
+      }));
+
+      // Enforce minimum block size (0.5h min per subject) - drop tiny allocations
+      allocations = allocations.filter(a => a.hours >= 0.25);
+
+      // If too many subjects, cap at reasonable max (top 5 by allocation)
+      if (allocations.length > 5) {
+        allocations.sort((a, b) => b.hours - a.hours);
+        allocations = allocations.slice(0, 5);
+      }
+
+      // Re-normalize to hit daily hours target
       const allocTotal = allocations.reduce((s, a) => s + a.hours, 0);
-      if (allocTotal > dailyHours + 0.25) {
+      if (allocTotal > 0 && Math.abs(allocTotal - dailyHours) > 0.25) {
         const scale = dailyHours / allocTotal;
         allocations.forEach(a => {
           a.hours = Math.max(0.25, Math.round(a.hours * scale * 4) / 4);
         });
       }
 
-      if (allocations.length > 0) schedule.push({ date: dateStr, allocations });
+      // Cap at remaining needed (don't over-deliver)
+      allocations.forEach(a => {
+        const remaining = Math.max(0, courseData.find(c => c.courseId === a.courseId).totalHours - delivered[a.courseId]);
+        a.hours = Math.min(a.hours, Math.ceil(remaining * 4) / 4);
+      });
+      allocations = allocations.filter(a => a.hours >= 0.25);
+
+      // Update delivered totals
+      allocations.forEach(a => { delivered[a.courseId] += a.hours; });
+
+      if (allocations.length > 0) {
+        const isExamDay = examToday.length > 0;
+        schedule.push({ date: dateStr, allocations, isExamDay, examSubjects: examToday });
+      }
     }
+
+    // Compute delivery stats
+    courseData.forEach(c => {
+      c.deliveredHours = Math.round(delivered[c.courseId] * 2) / 2;
+    });
 
     studyPlanData = { courseData, schedule, dailyHours };
     renderStudyPlan();
@@ -1387,12 +1469,14 @@
     courseData.forEach(c => {
       const color = SUBJECT_GROUPS[c.course.group]?.color || '#888';
       const dotClass = c.course.group === 'ap' ? 'sa-dot dot-ap' : 'sa-dot';
+      const pct = c.totalHours > 0 ? Math.round((c.deliveredHours / c.totalHours) * 100) : 0;
       sHtml += '<div class="study-alloc-row">';
       sHtml += '<span class="' + dotClass + '" style="background:' + sanitize(color) + '"></span>';
       sHtml += '<span class="sa-name">' + sanitize(c.course.name) + '</span>';
       sHtml += '<span class="sa-meta">' + c.daysUntil + 'd left</span>';
       sHtml += '<input type="number" class="sa-input" data-course="' + sanitize(c.courseId) + '" value="' + c.totalHours + '" min="0" max="999" step="0.5">';
       sHtml += '<span class="sa-unit">hrs</span>';
+      sHtml += '<span class="sa-pct" title="' + c.deliveredHours + '/' + c.totalHours + 'h scheduled">' + pct + '%</span>';
       sHtml += '</div>';
     });
 
@@ -1444,9 +1528,11 @@
         const dateObj = new Date(day.date + 'T00:00:00');
         const dayLabel = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
         const totalDayHours = day.allocations.reduce((s, a) => s + a.hours, 0);
+        const examClass = day.isExamDay ? ' study-day-exam' : '';
+        const examTag = day.isExamDay ? ' <span class="sd-exam-tag">EXAM DAY</span>' : '';
 
-        dHtml += '<div class="study-day">';
-        dHtml += '<div class="study-day-header"><span class="study-day-date">' + dayLabel + '</span><span class="study-day-total">' + totalDayHours + 'h</span></div>';
+        dHtml += '<div class="study-day' + examClass + '">';
+        dHtml += '<div class="study-day-header"><span class="study-day-date">' + dayLabel + examTag + '</span><span class="study-day-total">' + totalDayHours + 'h</span></div>';
 
         day.allocations.forEach(a => {
           const course = getCourse(a.courseId);
