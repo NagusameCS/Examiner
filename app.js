@@ -1604,4 +1604,67 @@
     URL.revokeObjectURL(url);
   }
 
+  /* ===== ORBITING SOCIAL BUTTONS ===== */
+  (function initOrbitSocials() {
+    const container = document.getElementById('orbit-socials');
+    if (!container) return;
+    const btns = Array.from(container.querySelectorAll('.orbit-btn'));
+    const count = btns.length;
+    const wrapper = container.closest('.avatar-orbit-wrapper');
+    if (!wrapper) return;
+
+    const BASE_SPEED = 0.0007;
+    const MIN_SPEED  = 0.00012;
+    const SLOW_RADIUS = 200;
+    const RADIUS_X = 90;
+    const RADIUS_Y = 16;
+    const SCALE_FRONT = 1.05;
+    const SCALE_BACK  = 0.55;
+    const OPACITY_FRONT = 1.0;
+    const OPACITY_BACK  = 0.3;
+    const BTN_SIZE = 32;
+
+    let orbitAngle = 0;
+    let lastTime = performance.now();
+    let mouseX = -9999, mouseY = -9999;
+
+    document.addEventListener('mousemove', function(e) { mouseX = e.clientX; mouseY = e.clientY; });
+    document.addEventListener('mouseleave', function() { mouseX = -9999; mouseY = -9999; });
+
+    function animate(now) {
+      var dt = Math.min(now - lastTime, 50);
+      lastTime = now;
+
+      var wr = wrapper.getBoundingClientRect();
+      var cx = wr.left + wr.width / 2;
+      var cy = wr.top + wr.height / 2;
+      var cursorDist = Math.hypot(mouseX - cx, mouseY - cy);
+      var rawP = Math.max(0, Math.min(1, 1 - cursorDist / SLOW_RADIUS));
+      var proximity = rawP * rawP * rawP;
+      var speed = BASE_SPEED + (MIN_SPEED - BASE_SPEED) * proximity;
+      orbitAngle += speed * dt;
+
+      var halfBtn = BTN_SIZE / 2;
+      btns.forEach(function(btn, i) {
+        var angle = (2 * Math.PI * i) / count + orbitAngle;
+        var depth = Math.sin(angle);
+        var x = cx + RADIUS_X * Math.cos(angle) - halfBtn;
+        var y = cy + RADIUS_Y * Math.sin(angle) - halfBtn;
+        var sc = SCALE_BACK + (SCALE_FRONT - SCALE_BACK) * (depth + 1) / 2;
+        var op = OPACITY_BACK + (OPACITY_FRONT - OPACITY_BACK) * (depth + 1) / 2;
+
+        btn.style.position = 'fixed';
+        btn.style.left = x + 'px';
+        btn.style.top = y + 'px';
+        btn.style.transform = 'scale(' + sc.toFixed(3) + ')';
+        btn.style.opacity = op.toFixed(3);
+        btn.style.zIndex = depth > 0 ? 3 : 0;
+      });
+
+      requestAnimationFrame(animate);
+    }
+
+    requestAnimationFrame(animate);
+  })();
+
 })();
