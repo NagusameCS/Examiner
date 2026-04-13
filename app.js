@@ -785,53 +785,13 @@
       }
     }
 
-    // Same-day heavy load (3+ exams in one day)
-    const byDate = {};
-    myExams.forEach(exam => {
-      if (!byDate[exam.date]) byDate[exam.date] = [];
-      byDate[exam.date].push(exam);
-    });
-    for (const [date, exams] of Object.entries(byDate)) {
-      if (exams.length >= 3) {
-        conflicts.push({
-          type: 'heavy-day',
-          date,
-          session: null,
-          exams: exams.map(e => e.name),
-          severity: 'medium'
-        });
-      }
-    }
-
-    // Back-to-back days with high total duration
-    const sortedDates = Object.keys(byDate).sort();
-    for (let i = 0; i < sortedDates.length - 1; i++) {
-      const d1 = sortedDates[i];
-      const d2 = sortedDates[i + 1];
-      const date1 = new Date(d1 + 'T00:00:00');
-      const date2 = new Date(d2 + 'T00:00:00');
-      const diffDays = (date2 - date1) / (1000 * 60 * 60 * 24);
-      if (diffDays === 1) {
-        const totalMins = [...byDate[d1], ...byDate[d2]].reduce((s, e) => s + e.duration, 0);
-        if (totalMins >= 360) { // 6+ hours across consecutive days
-          conflicts.push({
-            type: 'consecutive-heavy',
-            date: d1,
-            session: null,
-            exams: [...byDate[d1], ...byDate[d2]].map(e => e.name),
-            severity: 'low'
-          });
-        }
-      }
-    }
-
     return conflicts;
   }
 
   function getConflictDates(conflicts) {
     const dates = new Set();
     conflicts.forEach(c => {
-      if (c.type === 'same-session' || c.type === 'heavy-day') {
+      if (c.type === 'same-session') {
         dates.add(c.date);
       }
     });
