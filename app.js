@@ -758,19 +758,21 @@
     });
 
     // Same-slot conflicts (same date + same session)
-    // Exams from the same course (sharing a courseId) in the same slot are normal dual-paper sessions, not conflicts
+    // Exams from the same subject (sharing a courseId) in the same slot are normal multi-paper sessions, not conflicts
     for (const [key, exams] of Object.entries(bySlot)) {
       if (exams.length > 1) {
-        // Group exams by their courseIds to find actual cross-subject conflicts
-        const uniqueCourses = new Set();
-        exams.forEach(e => e.courseIds.forEach(cid => uniqueCourses.add(cid)));
+        // Two exams are a real conflict only if they share NO courseIds (truly different subjects)
+        let hasRealConflict = false;
+        for (let i = 0; i < exams.length && !hasRealConflict; i++) {
+          for (let j = i + 1; j < exams.length && !hasRealConflict; j++) {
+            const sharesAnyCourseId = exams[i].courseIds.some(cid => exams[j].courseIds.includes(cid));
+            if (!sharesAnyCourseId) {
+              hasRealConflict = true;
+            }
+          }
+        }
 
-        // Check if all exams belong to the same single course
-        const allSameCourse = exams.every(e =>
-          e.courseIds.length === 1 && e.courseIds[0] === exams[0].courseIds[0]
-        );
-
-        if (!allSameCourse && uniqueCourses.size > 1) {
+        if (hasRealConflict) {
           const [date, session] = key.split('|');
           conflicts.push({
             type: 'same-session',
