@@ -1753,7 +1753,7 @@
           const c = COURSES.find(x => x.id === id);
           return c ? c.name : id;
         });
-        schedule.push({ date, allocations: [], isExamDay, examSubjects });
+        schedule.push({ date: dateStr, allocations: [], isExamDay, examSubjects });
         continue;
       }
 
