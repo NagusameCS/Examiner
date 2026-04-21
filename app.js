@@ -47,6 +47,25 @@
     setupSearch();
     setupNavigation();
 
+    // Load courses from URL share link (?courses=id1,id2,...)
+    const urlParams = new URLSearchParams(window.location.search);
+    const sharedCourses = urlParams.get('courses');
+    if (sharedCourses) {
+      const ids = sharedCourses.split(',').map(s => s.trim()).filter(s => s.length > 0);
+      const validIds = ids.filter(id => COURSES.some(c => c.id === id));
+      if (validIds.length > 0) {
+        selectedCourseIds = validIds;
+        saveCourses();
+        renderSelectedCourses();
+        localStorage.setItem(FIRST_VISIT_KEY, '1');
+        showView('my');
+        generatePersonalCalendar();
+        // Clean up URL without reloading
+        window.history.replaceState({}, '', window.location.pathname);
+        return;
+      }
+    }
+
     const visited = localStorage.getItem(FIRST_VISIT_KEY);
     if (visited) {
       // Returning user — check if they have saved courses
